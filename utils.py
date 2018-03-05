@@ -3,6 +3,7 @@ Author: Andre Perkins
 """
 
 import pandas
+import numpy as np
 
 star_color_data = pandas.read_pickle('stellar_color_df.pckl')
 AU_IN_M = 149597870700  # meters
