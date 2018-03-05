@@ -4,67 +4,15 @@ from bokeh.layouts import layout, WidgetBox
 from bokeh.models import ColumnDataSource, Range1d
 from bokeh.models.widgets import Div, Slider
 from bokeh.models.tools import HoverTool
-import pandas
 
-star_color_data = pandas.read_pickle('stellar_color_df.pckl')
-AU_IN_M = 149597870700  # meters
-LUMINOSITY_OUR_SUN = 3.828e26  # watts
+import utils
+
+AU_IN_M = utils.AU_IN_M
+
+# Styling for text table columns
 left_style = '"text-align:left; font-weight:bold"'
 right_style = '"text-align:right; font-weight:normal;"'
 title_style = '"text-align:left; font-weight:bold; font-size:18px"'
-
-
-def get_plot_range(stellar_radius, planet_dist):
-
-    ydist = 3 * stellar_radius
-    yrange = (-ydist, ydist)
-    x_buffer = planet_dist * 0.1
-    xrange = (0 - x_buffer, planet_dist + x_buffer)
-
-    return xrange, yrange
-
-
-def radius_fix_factor(pwidth, pheight, total_xrange, y_radius, total_yrange):
-    px_per_x = pwidth / total_xrange
-    apparent_yradius_px = y_radius / total_yrange * pheight
-    real_y_px = y_radius * px_per_x
-    infl_factor = apparent_yradius_px / real_y_px
-
-    equiv_radius_x = y_radius * infl_factor
-
-    return equiv_radius_x
-
-
-def calc_star_radius(rel_luminosity, t_eff):
-
-    L = rel_luminosity * LUMINOSITY_OUR_SUN
-    bb_output = calc_star_energy_flux(t_eff)
-    radius = np.sqrt(L / (4 * np.pi * bb_output))
-
-    # Return normalized radius in AU
-    return radius / AU_IN_M
-
-
-def calc_star_energy_flux(t_eff):
-    sigma = 5.670367e-8  # Stefan-Boltzmann Constant W.m^-2.K^-4
-    return sigma * t_eff ** 4
-
-
-def calc_planet_radius_in_au(relative_radius):
-    earth_radius = 6.371e6  # meters
-    radius = relative_radius * earth_radius
-    return radius / AU_IN_M
-
-
-def calc_planet_energy_in(rel_luminosity, rel_planet_dist):
-    luminosity_our_sun = 3.828e26  # watts
-    luminosity = rel_luminosity * luminosity_our_sun
-    toa_energy = luminosity / (4 * np.pi * (rel_planet_dist * AU_IN_M) ** 2)
-    return toa_energy
-
-
-def get_star_color(t_eff):
-    return star_color_data['hexrgb'].loc[t_eff, '10deg']
 
 
 def plot_body(fig_handle, data_source, invis_radius):
@@ -85,12 +33,12 @@ def init_star_planet_plot(t_eff=6000, rel_luminosity=1,
                           plot_width=800,
                           plot_height=400):
 
-    stellar_radius = calc_star_radius(rel_luminosity, t_eff)
-    planet_radius = calc_planet_radius_in_au(rel_planet_radius)
-    xrange, yrange = get_plot_range(stellar_radius, rel_planet_dist)
-    star_color = get_star_color(t_eff)
-    star_E_out = calc_star_energy_flux(t_eff)
-    planet_E_in = calc_planet_energy_in(rel_luminosity, rel_planet_dist)
+    stellar_radius = utils.calc_star_radius(rel_luminosity, t_eff)
+    planet_radius = utils.calc_planet_radius_in_au(rel_planet_radius)
+    xrange, yrange = utils.get_plot_range(stellar_radius, rel_planet_dist)
+    star_color = utils.get_star_color(t_eff)
+    star_E_out = utils.calc_star_energy_flux(t_eff)
+    planet_E_in = utils.calc_planet_energy_in(rel_luminosity, rel_planet_dist)
 
     p = figure(x_range=xrange, y_range=yrange, plot_width=plot_width,
                plot_height=plot_height, toolbar_location='above',
@@ -115,10 +63,10 @@ def init_star_planet_plot(t_eff=6000, rel_luminosity=1,
                                             line_color=['#ADD8E6'],  # light blue
                                             energy_in=[planet_E_in]))
 
-    invis_radius = radius_fix_factor(plot_width, plot_height,
-                                     np.diff(xrange)[0],
-                                     stellar_radius,
-                                     np.diff(yrange)[0])
+    invis_radius = utils.radius_fix_factor(plot_width, plot_height,
+                                           np.diff(xrange)[0],
+                                           stellar_radius,
+                                           np.diff(yrange)[0])
     sol, sol_invis = plot_body(p, sol_data, invis_radius)
     terra, terra_invis = plot_body(p, terra_data, invis_radius)
 
@@ -222,12 +170,13 @@ def update_star_info(new_luminosity=None, new_t_eff=None):
     if new_t_eff is None:
         new_t_eff = star_data.data['T_eff'][0]
 
-    new_radius = calc_star_radius(new_luminosity, new_t_eff)
-    new_color = get_star_color(new_t_eff)
-    new_energy_out = calc_star_energy_flux(new_t_eff)
+    new_radius = utils.calc_star_radius(new_luminosity, new_t_eff)
+    new_color = utils.get_star_color(new_t_eff)
+    new_energy_out = utils.calc_star_energy_flux(new_t_eff)
 
     star_update = dict(radius=[new_radius],
                        color=[new_color],
+                       T_eff=[new_t_eff],
                        energy_out=[new_energy_out])
 
     star_data.data.update(star_update)
@@ -236,12 +185,13 @@ def update_star_info(new_luminosity=None, new_t_eff=None):
 
     update_planet_info(new_radius, new_star_luminosity=new_luminosity)
 
+
 def update_planet_info(star_radius, radius=None, dist=None, new_star_luminosity=None):
 
     if radius is None:
         radius = planet_data.data['radius'][0]
     else:
-        radius = calc_planet_radius_in_au(radius)
+        radius = utils.calc_planet_radius_in_au(radius)
 
     if dist is None:
         dist = planet_data.data['xvalues'][0]
@@ -251,7 +201,7 @@ def update_planet_info(star_radius, radius=None, dist=None, new_star_luminosity=
     else:
         star_luminosity = new_star_luminosity
 
-    energy_in = calc_planet_energy_in(star_luminosity, dist)
+    energy_in = utils.calc_planet_energy_in(star_luminosity, dist)
 
     planet_update = dict(radius=[radius], xvalues=[dist], energy_in=[energy_in])
     planet_data.data.update(planet_update)
@@ -259,7 +209,7 @@ def update_planet_info(star_radius, radius=None, dist=None, new_star_luminosity=
     new_planet_text = create_planet_text_html(planet_data, star_radius)
     planet_div.text = new_planet_text
 
-    new_xrange, new_yrange = get_plot_range(star_radius, dist)
+    new_xrange, new_yrange = utils.get_plot_range(star_radius, dist)
     p.x_range.start, p.x_range.end = new_xrange
     # p.y_range.start, p.y_range.end = new_yrange
 
