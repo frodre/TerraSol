@@ -1,13 +1,14 @@
 import numpy as np
 from bokeh.plotting import figure, curdoc, show
 from bokeh.layouts import layout, WidgetBox
-from bokeh.models import ColumnDataSource, Range1d
+from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Div, Slider
 from bokeh.models.tools import HoverTool
 
 import utils
 
 AU_IN_M = utils.AU_IN_M
+LUMINOSITY_OUR_SUN = utils.LUMINOSITY_OUR_SUN
 
 # Styling for text table columns
 left_style = '"text-align:left; font-weight:bold"'
