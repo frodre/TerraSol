@@ -98,7 +98,7 @@ def create_star_text_html(sol_data):
     luminosity *= LUMINOSITY_OUR_SUN
     radius *= AU_IN_M
 
-    text = f"""
+    text = """
             <table style="width:100%">
                 <tr><th colspan="2" style={title_style}>{name} Characteristics</th></tr>
                 <tr>
@@ -117,7 +117,14 @@ def create_star_text_html(sol_data):
                     <td style={left_style}>Energy Flux:</td>
                     <td style={right_style}>{energy_out:1.4e} W/m^</td>
                 </tr>
-            </table>"""
+            </table>""".format(title_style=title_style,
+                               name=name,
+                               left_style=left_style,
+                               right_style=right_style,
+                               t_eff=t_eff,
+                               luminosity=luminosity,
+                               radius=radius,
+                               energy_out=energy_out)
 
     return text
 
@@ -132,7 +139,7 @@ def create_planet_text_html(terra_data, stellar_radius):
     radius *= AU_IN_M
     dist = (dist - stellar_radius) * AU_IN_M
 
-    text = f"""
+    text = """
             <table style="width:100%">
                 <tr><th colspan="2" style={title_style}>{name} Characteristics </th></tr>
                 <tr>
@@ -147,7 +154,13 @@ def create_planet_text_html(terra_data, stellar_radius):
                     <td style={left_style}>Energy Flux In: </td>
                     <td style={right_style}>{energy_in:1.4e} W/m^2</td>
                 </tr>
-            </table>"""
+            </table>""".format(title_style=title_style,
+                               name=name,
+                               left_style=left_style,
+                               right_style=right_style,
+                               dist=dist,
+                               radius=radius,
+                               energy_in=energy_in)
 
     return text
 
