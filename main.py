@@ -5,8 +5,19 @@ from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import Div, Slider, TextInput, Select
 from bokeh.models.tools import HoverTool
 
+import holoviews as hv
+import holoviews.plotting.bokeh
+import geoviews as gv
+import geoviews.feature as gf
+import cartopy.crs as ccrs
+
 import utils
 import climate
+
+hv.extension('bokeh')
+renderer = hv.renderer('bokeh')
+hv.opts("Overlay [width=600 height=500] Image (cmap='viridis') Feature (line_color='black')")
+hv.output(size=200)
 
 AU_IN_M = utils.AU_IN_M
 LUMINOSITY_OUR_SUN = utils.LUMINOSITY_OUR_SUN
@@ -107,6 +118,7 @@ planet_text = utils.create_planet_text_html(planet_data,
 planet_energy_in = planet_data.data['energy_in'][0] / 4
 planet_climate = climate.EnergyBalanceModel(Q=planet_energy_in)
 climate_result = planet_climate.solve_climate()
+final_T_dataframe = planet_climate.convert_1d_to_grid()
 
 # Create Elements for page
 star_div = Div(text=star_text, width=266, height=100)
@@ -232,6 +244,22 @@ plot_layout = layout([[p],
                       [widgets, planet_widgets],
                       [climate_inputs1, climate_inputs2, model_inputs]],
                      sizing_mode='fixed')
-show(plot_layout)
-# curdoc().add_root(plot_layout)
-# curdoc().title = 'TerraSol'
+# show(plot_layout)
+curdoc().add_root(plot_layout)
+curdoc().title = 'TerraSol'
+
+# xr_dataset = gv.Dataset(data=final_T_dataframe.to_dataset(name='T'),
+#                         vdims=['T'],
+#                         kdims=['lat', 'lon'],
+#                         crs=ccrs.PlateCarree())
+# temp_map = xr_dataset.to.image()
+# playout = temp_map * gf.coastline()
+#
+# points = hv.Points(np.random.randn(1000,2 )).opts(plot=dict(tools=['box_select', 'lasso_select']))
+# points2 = hv.Points(np.random.randn(1000,2 )).opts(plot=dict(tools=['box_select', 'lasso_select']))
+# playout = points + points2
+# doc = renderer.server_doc(playout)
+# doc.title = 'Testing'
+#
+# # plot = renderer.get_plot(temp_map, curdoc())
+# # show(layout([plot.state]))

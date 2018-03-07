@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
+import xarray as xr
 
 
 def calc_albedo(x, temperature):
@@ -50,6 +51,7 @@ class EnergyBalanceModel(object):
         self.x = np.linspace(-1, 1, nlats)
         self.lats = np.arcsin(self.x)
         self.lats_in_deg = self.lats * 180 / np.pi
+        self.lons_in_deg = np.arange(0, 360, 5)
 
         self._dx = self.x[1] - self.x[0]
         self._dt = self._dx**2 / D
@@ -141,9 +143,24 @@ class EnergyBalanceModel(object):
     def convert_degC_to_degF(temp):
         return temp * 9 / 5 + 32
 
+    def convert_1d_to_grid(self):
+
+        lons, lats = np.meshgrid(self.lons_in_deg, self.lats_in_deg)
+        values = np.ones_like(lons) * self.T[:, None]
+        values = values.astype(np.float32)
+
+        dataset = xr.DataArray(values, coords=[self.lats_in_deg,
+                                               self.lons_in_deg],
+                               dims=['lat', 'lon'])
+
+        return dataset
+
+
+
 
 
 if __name__ == '__main__':
     model = EnergyBalanceModel(Q=300)
     print(model.solve_climate())
+    data = model.convert_1d_to_grid()
     x = 1
