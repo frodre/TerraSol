@@ -2,10 +2,11 @@ import numpy as np
 from bokeh.plotting import figure, curdoc, show
 from bokeh.layouts import layout, WidgetBox
 from bokeh.models import ColumnDataSource
-from bokeh.models.widgets import Div, Slider
+from bokeh.models.widgets import Div, Slider, TextInput, Select
 from bokeh.models.tools import HoverTool
 
 import utils
+import climate
 
 AU_IN_M = utils.AU_IN_M
 LUMINOSITY_OUR_SUN = utils.LUMINOSITY_OUR_SUN
@@ -89,7 +90,10 @@ def init_planet_climate(energy_in):
                                                       Q=energy_in/4,
                                                       D=1.2,
                                                       S2=-0.482,
-                                                      C=9.8))
+                                                      C=9.8,
+                                                      nlats=70,
+                                                      tol=1e-5,
+                                                      init_condition='normal'))
 
 
 # Initialize Star and Planet
@@ -98,6 +102,11 @@ p, star_data, planet_data = init_star_planet_plot()
 star_text = utils.create_star_text_html(star_data)
 planet_text = utils.create_planet_text_html(planet_data,
                                             star_data.data['radius'][0])
+
+# Initialize Climate Model
+planet_energy_in = planet_data.data['energy_in'][0] / 4
+planet_climate = climate.EnergyBalanceModel(Q=planet_energy_in)
+climate_result = planet_climate.solve_climate()
 
 # Create Elements for page
 star_div = Div(text=star_text, width=266, height=100)
@@ -190,12 +199,39 @@ luminosity_slider.on_change('value', luminosity_handler)
 planet_radius_slider.on_change('value', planet_radius_handler)
 planet_distance_slider.on_change('value', planet_dist_handler)
 
+# Climate inputs
+planet_emiss = TextInput(title='Planetary IR energy out (W/m^2)',
+                         value='{:.2f}'.format(planet_climate.A))
+planet_atm_forcing = TextInput(title='Atmosphere IR adjustment (W/m^2)',
+                               value='{:.1f}'.format(planet_climate.B))
+solar_input = TextInput(title='Incoming solar (W/m^2) [Divided by 4]',
+                        value='{:.2f}'.format(planet_energy_in))
+energy_transport = TextInput(title='Energy transport towards poles (1/C)',
+                             value='{:.1f}'.format(planet_climate.D))
+s2_input = TextInput(title='S2 (what is this for?)',
+                     value='{:.3f}'.format(planet_climate.S2))
+heat_capacity = TextInput(title='Planetary heat capacity (C/yr)',
+                          value='{:.1f}'.format(planet_climate.C))
+numlats = Slider(start=40, end=180, step=1, value=70,
+                 title='Number of latitudes in model')
+init_planet_T = Select(title='Initial planet temperature',
+                       value='normal',
+                       options=['normal', 'warm', 'cold'])
+
+
+climate_inputs1 = WidgetBox(children=[planet_emiss,
+                                      planet_atm_forcing,
+                                      solar_input],
+                            width=int(800/3))
+climate_inputs2 = WidgetBox(energy_transport, s2_input, heat_capacity)
+model_inputs = WidgetBox(numlats, init_planet_T)
 widgets = WidgetBox(t_eff_slider, luminosity_slider)
 planet_widgets = WidgetBox(planet_radius_slider, planet_distance_slider)
 plot_layout = layout([[p],
                       [star_div, empty_div, planet_div],
-                      [widgets, planet_widgets]],
+                      [widgets, planet_widgets],
+                      [climate_inputs1, climate_inputs2, model_inputs]],
                      sizing_mode='fixed')
-# show(plot_layout)
-curdoc().add_root(plot_layout)
-curdoc().title = 'TerraSol'
+show(plot_layout)
+# curdoc().add_root(plot_layout)
+# curdoc().title = 'TerraSol'

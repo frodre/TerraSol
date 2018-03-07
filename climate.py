@@ -1,6 +1,8 @@
+# Climate model based off of Judy and Hansi's energy balance notebook
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
+
 
 def calc_albedo(x, temperature):
     a_ice = 0.6
