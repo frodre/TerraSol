@@ -4,8 +4,11 @@ Author: Andre Perkins
 
 import pandas
 import numpy as np
+import os
 
-star_color_data = pandas.read_pickle('stellar_color_df.pckl')
+file_dir = os.path.dirname(__file__)
+file_fullpath = os.path.join(file_dir, 'stellar_color_df.pckl')
+star_color_data = pandas.read_pickle(file_fullpath)
 AU_IN_M = 149597870700  # meters
 LUMINOSITY_OUR_SUN = 3.828e26  # watts
 
