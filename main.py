@@ -10,11 +10,6 @@ import utils
 AU_IN_M = utils.AU_IN_M
 LUMINOSITY_OUR_SUN = utils.LUMINOSITY_OUR_SUN
 
-# Styling for text table columns
-left_style = '"text-align:left; font-weight:bold"'
-right_style = '"text-align:right; font-weight:normal;"'
-title_style = '"text-align:left; font-weight:bold; font-size:18px"'
-
 
 def plot_body(fig_handle, data_source, invis_radius):
     body = fig_handle.circle(x='xvalues', y='yvalues', radius='radius',
@@ -87,89 +82,22 @@ def init_star_planet_plot(t_eff=6000, rel_luminosity=1,
     return p, sol_data, terra_data
 
 
-def create_star_text_html(sol_data):
+def init_planet_climate(energy_in):
 
-    name = sol_data.data['name'][0]
-    luminosity = sol_data.data['luminosity'][0]
-    t_eff = sol_data.data['T_eff'][0]
-    radius = sol_data.data['radius'][0]
-    energy_out = sol_data.data['energy_out'][0]
-
-    luminosity *= LUMINOSITY_OUR_SUN
-    radius *= AU_IN_M
-
-    text = """
-            <table style="width:100%">
-                <tr><th colspan="2" style={title_style}>{name} Characteristics</th></tr>
-                <tr>
-                    <td style={left_style}>Luminosity: </td>
-                    <td style={right_style}>{luminosity:1.4e} W</td>
-                </tr>
-                <tr>
-                    <td style={left_style}>Effective Temperature:</td>
-                    <td style={right_style}> {t_eff:} K</td>
-                </tr>
-                <tr>
-                    <td style={left_style}>Radius: </td>
-                    <td style={right_style}>{radius:1.4e} m</td>
-                </tr>
-                <tr>
-                    <td style={left_style}>Energy Flux:</td>
-                    <td style={right_style}>{energy_out:1.4e} W/m^</td>
-                </tr>
-            </table>""".format(title_style=title_style,
-                               name=name,
-                               left_style=left_style,
-                               right_style=right_style,
-                               t_eff=t_eff,
-                               luminosity=luminosity,
-                               radius=radius,
-                               energy_out=energy_out)
-
-    return text
-
-
-def create_planet_text_html(terra_data, stellar_radius):
-
-    name = terra_data.data['name'][0]
-    dist = terra_data.data['xvalues'][0]
-    radius = terra_data.data['radius'][0]
-    energy_in = terra_data.data['energy_in'][0]
-
-    radius *= AU_IN_M
-    dist = (dist - stellar_radius) * AU_IN_M
-
-    text = """
-            <table style="width:100%">
-                <tr><th colspan="2" style={title_style}>{name} Characteristics </th></tr>
-                <tr>
-                    <td style={left_style}>Distance from star:</td>
-                    <td style={right_style}>{dist:1.4e} m</td>
-                </tr>
-                <tr>
-                    <td style={left_style}>Radius:</td>
-                    <td style={right_style}>{radius:1.4e} m</td>
-                </tr>
-                <tr>
-                    <td style={left_style}>Energy Flux In: </td>
-                    <td style={right_style}>{energy_in:1.4e} W/m^2</td>
-                </tr>
-            </table>""".format(title_style=title_style,
-                               name=name,
-                               left_style=left_style,
-                               right_style=right_style,
-                               dist=dist,
-                               radius=radius,
-                               energy_in=energy_in)
-
-    return text
+    climate_model_inputs = ColumnDataSource(data=dict(A=211.22,
+                                                      B=2.1,
+                                                      Q=energy_in/4,
+                                                      D=1.2,
+                                                      S2=-0.482,
+                                                      C=9.8))
 
 
 # Initialize Star and Planet
 p, star_data, planet_data = init_star_planet_plot()
 
-star_text = create_star_text_html(star_data)
-planet_text = create_planet_text_html(planet_data, star_data.data['radius'][0])
+star_text = utils.create_star_text_html(star_data)
+planet_text = utils.create_planet_text_html(planet_data,
+                                            star_data.data['radius'][0])
 
 # Create Elements for page
 star_div = Div(text=star_text, width=266, height=100)
@@ -194,7 +122,7 @@ def update_star_info(new_luminosity=None, new_t_eff=None):
                        energy_out=[new_energy_out])
 
     star_data.data.update(star_update)
-    new_star_text = create_star_text_html(star_data)
+    new_star_text = utils.create_star_text_html(star_data)
     star_div.text = new_star_text
 
     update_planet_info(new_radius, new_star_luminosity=new_luminosity)
@@ -220,7 +148,7 @@ def update_planet_info(star_radius, radius=None, dist=None, new_star_luminosity=
     planet_update = dict(radius=[radius], xvalues=[dist], energy_in=[energy_in])
     planet_data.data.update(planet_update)
 
-    new_planet_text = create_planet_text_html(planet_data, star_radius)
+    new_planet_text = utils.create_planet_text_html(planet_data, star_radius)
     planet_div.text = new_planet_text
 
     new_xrange, new_yrange = utils.get_plot_range(star_radius, dist)

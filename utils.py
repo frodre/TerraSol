@@ -9,8 +9,14 @@ import os
 file_dir = os.path.dirname(__file__)
 file_fullpath = os.path.join(file_dir, 'stellar_color_df.pckl')
 star_color_data = pandas.read_pickle(file_fullpath)
+
 AU_IN_M = 149597870700  # meters
 LUMINOSITY_OUR_SUN = 3.828e26  # watts
+
+# Styling for text table columns
+left_style = '"text-align:left; font-weight:bold"'
+right_style = '"text-align:right; font-weight:normal;"'
+title_style = '"text-align:left; font-weight:bold; font-size:18px"'
 
 
 # Plotting Help
@@ -66,3 +72,82 @@ def calc_planet_energy_in(rel_luminosity, rel_planet_dist):
 
 def get_star_color(t_eff):
     return star_color_data['hexrgb'].loc[t_eff, '10deg']
+
+
+# Update functions
+def create_star_text_html(sol_data):
+
+    name = sol_data.data['name'][0]
+    luminosity = sol_data.data['luminosity'][0]
+    t_eff = sol_data.data['T_eff'][0]
+    radius = sol_data.data['radius'][0]
+    energy_out = sol_data.data['energy_out'][0]
+
+    luminosity *= LUMINOSITY_OUR_SUN
+    radius *= AU_IN_M
+
+    text = """
+            <table style="width:100%">
+                <tr><th colspan="2" style={title_style}>{name} Characteristics</th></tr>
+                <tr>
+                    <td style={left_style}>Luminosity: </td>
+                    <td style={right_style}>{luminosity:1.4e} W</td>
+                </tr>
+                <tr>
+                    <td style={left_style}>Effective Temperature:</td>
+                    <td style={right_style}> {t_eff:} K</td>
+                </tr>
+                <tr>
+                    <td style={left_style}>Radius: </td>
+                    <td style={right_style}>{radius:1.4e} m</td>
+                </tr>
+                <tr>
+                    <td style={left_style}>Energy Flux:</td>
+                    <td style={right_style}>{energy_out:1.4e} W/m^</td>
+                </tr>
+            </table>""".format(title_style=title_style,
+                               name=name,
+                               left_style=left_style,
+                               right_style=right_style,
+                               t_eff=t_eff,
+                               luminosity=luminosity,
+                               radius=radius,
+                               energy_out=energy_out)
+
+    return text
+
+
+def create_planet_text_html(terra_data, stellar_radius):
+
+    name = terra_data.data['name'][0]
+    dist = terra_data.data['xvalues'][0]
+    radius = terra_data.data['radius'][0]
+    energy_in = terra_data.data['energy_in'][0]
+
+    radius *= AU_IN_M
+    dist = (dist - stellar_radius) * AU_IN_M
+
+    text = """
+            <table style="width:100%">
+                <tr><th colspan="2" style={title_style}>{name} Characteristics </th></tr>
+                <tr>
+                    <td style={left_style}>Distance from star:</td>
+                    <td style={right_style}>{dist:1.4e} m</td>
+                </tr>
+                <tr>
+                    <td style={left_style}>Radius:</td>
+                    <td style={right_style}>{radius:1.4e} m</td>
+                </tr>
+                <tr>
+                    <td style={left_style}>Energy Flux In: </td>
+                    <td style={right_style}>{energy_in:1.4e} W/m^2</td>
+                </tr>
+            </table>""".format(title_style=title_style,
+                               name=name,
+                               left_style=left_style,
+                               right_style=right_style,
+                               dist=dist,
+                               radius=radius,
+                               energy_in=energy_in)
+
+    return text
