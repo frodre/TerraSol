@@ -1,9 +1,22 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
+from bokeh.models import ColumnDataSource
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
 import xarray as xr
 
+
+def init_planet_climate(energy_in):
+
+    climate_model_inputs = ColumnDataSource(data=dict(A=211.22,
+                                                      B=2.1,
+                                                      Q=energy_in/4,
+                                                      D=1.2,
+                                                      S2=-0.482,
+                                                      C=9.8,
+                                                      nlats=70,
+                                                      tol=1e-5,
+                                                      init_condition='normal'))
 
 def calc_albedo(x, temperature):
     a_ice = 0.6
@@ -154,9 +167,6 @@ class EnergyBalanceModel(object):
                                dims=['lat', 'lon'])
 
         return dataset
-
-
-
 
 
 if __name__ == '__main__':
