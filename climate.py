@@ -273,6 +273,19 @@ class EnergyBalanceModel(object):
 
         return dataset
 
+class SimpleClimate(object):
+    """
+    Planetary climate class that only uses albedo and a column IR opacity to approximate surface temperature
+    """
+    
+    def __init__(self,terra_sol_obj, plot_width=800,
+                tau_star=0.84, f_cloud=0.7, A_cloud=0.4,
+                f_land = 0.3, A_land=0.2):
+        sigma = 5.670367e-8  # Stefan-Boltzmann Constant W.m^-2.K^-4
+        self.S0 = terra_sol_obj.get_planet_energy_in()/4.
+        self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
+        self.Ts = (((1-self.alpha)*self.S0*(1+.75*tau_star))/(4.*sigma))**.25t
+    
 
 if __name__ == '__main__':
     model = EnergyBalanceModel(Q=300)
