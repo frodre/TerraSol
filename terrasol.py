@@ -103,6 +103,9 @@ class TerraSol(object):
         self.div_row = [self.star_div, empty_div, self.planet_div]
         self.sliders = self.init_slider_wx()
 
+    def get_planet_energy_in(self):
+        return self.planet_data.data['energy_in'][0]
+
     def update_star(self, new_luminosity=None, new_t_eff=None):
         if new_luminosity is None:
             new_luminosity = self.star_data.data['luminosity'][0]

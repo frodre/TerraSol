@@ -1,22 +1,127 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, WidgetBox
+from bokeh.models.widgets import TextInput, Select, Slider, Button
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
 import xarray as xr
 
 
-def init_planet_climate(energy_in):
+class PlanetClimateEBM(object):
 
-    climate_model_inputs = ColumnDataSource(data=dict(A=211.22,
-                                                      B=2.1,
-                                                      Q=energy_in/4,
-                                                      D=1.2,
-                                                      S2=-0.482,
-                                                      C=9.8,
-                                                      nlats=70,
-                                                      tol=1e-5,
-                                                      init_condition='normal'))
+    """
+    Planetary Climate class that uses the North energy balance model.
+    """
+
+    def __init__(self, terra_sol_obj, plot_width=800):
+
+        energy_in = terra_sol_obj.get_planet_energy_in()
+        self._terra_sol = terra_sol_obj
+
+        planet_energy_in = energy_in / 4
+        self._plot_width = plot_width
+
+        climate_model_inputs = ColumnDataSource(
+            data=dict(A=[211.22], B=[2.1], Q=[planet_energy_in],
+                      D=[1.2], S2=[-0.482], C=[9.8], nlats=[70],
+                      tol=[1e-5], init_condition=['normal']))
+        self.model_input = climate_model_inputs
+
+        # Initialize EnergyBalanceModel and solve initial climate
+        self.planet_climate = None
+        self.climate_result = None
+        self.final_T_dataframe = None
+        self._update_model_and_run_sim()
+
+        # Create user inputs for EBM parameters
+        (self.calc_button,
+         self.input_wx,
+         (self.float_inputtext,
+          self.general_input)) = self.init_climate_input_wx(self.planet_climate)
+
+    def update_planet_climate(self):
+        self.calc_button.disabled = True
+        valid_float_in = {key: [float(field.value.strip())]
+                          for key, field in self.float_inputtext.items()}
+        general_in = {key: [field.value]
+                      for key, field in self.general_input.items()}
+
+        self.model_input.data.update(**valid_float_in)
+        self.model_input.data.update(**general_in)
+
+        self._update_model_and_run_sim()
+        self.calc_button.disabled = False
+
+    def _update_model_and_run_sim(self):
+        new_kwargs = self.get_ebm_kwargs()
+        self.planet_climate = EnergyBalanceModel(**new_kwargs)
+
+        self.climate_result = self.planet_climate.solve_climate()
+        self.final_T_dataframe = self.planet_climate.convert_1d_to_grid()
+
+        print(self.climate_result)
+
+    def _update_energy_in(self):
+        energy_in = self._terra_sol.get_planet_energy_in()
+        planet_energy_in = energy_in / 4
+
+        self.model_input.data.update(dict(Q=[planet_energy_in]))
+        energy_str = '{:.2f}'.format(planet_energy_in)
+        self.float_inputtext['Q'].value = energy_str
+
+    def init_climate_input_wx(self, planet_climate):
+        # Climate inputs
+        planet_emiss = TextInput(title='Planetary IR energy out (W/m^2)',
+                                 value='{:.2f}'.format(planet_climate.A))
+        planet_atm_forcing = TextInput(title='Atmosphere IR adjustment (W/m^2)',
+                                       value='{:.1f}'.format(planet_climate.B))
+        solar_input = TextInput(title='Incoming solar (W/m^2) [Divided by 4]',
+                                value='{:.2f}'.format(planet_climate.Q))
+        energy_transport = TextInput(
+            title='Energy transport towards poles (1/C)',
+            value='{:.1f}'.format(planet_climate.D))
+        s2_input = TextInput(title='S2 (what is this for?)',
+                             value='{:.3f}'.format(planet_climate.S2))
+        heat_capacity = TextInput(title='Planetary heat capacity (C/yr)',
+                                  value='{:.1f}'.format(planet_climate.C))
+        numlats = Slider(start=40, end=180, step=1, value=70,
+                         title='Number of latitudes in model')
+        init_planet_T = Select(title='Initial planet temperature',
+                               value='normal',
+                               options=['normal', 'warm', 'cold'])
+        calc_climate = Button(label='Simulate Climate', button_type='success')
+        calc_climate.on_click(self.update_planet_climate)
+        refresh_energy_in = Button(label='Refresh Solar Input')
+        refresh_energy_in.on_click(self._update_energy_in)
+
+        float_input = {'A': planet_emiss, 'B': planet_atm_forcing,
+                        'Q': solar_input, 'D': energy_transport,
+                        'S2': s2_input, 'C': heat_capacity}
+        general_input = {'nlats': numlats,
+                         'init_condition': init_planet_T}
+
+        clim_input_grp1 = WidgetBox(children=[planet_emiss,
+                                              planet_atm_forcing,
+                                              solar_input,
+                                              refresh_energy_in],
+                                    width=int(self._plot_width/3))
+        clim_input_grp2 = WidgetBox(energy_transport, s2_input, heat_capacity)
+        clim_input_grp3 = WidgetBox(numlats, init_planet_T)
+
+        return (calc_climate,
+                [clim_input_grp1, clim_input_grp2, clim_input_grp3],
+                (float_input, general_input))
+
+    def get_ebm_kwargs(self):
+
+        ebm_kwargs = {key: model_in[0] for key, model_in in
+                      self.model_input.data.items()}
+        return ebm_kwargs
+
+
+
+
+
 
 def calc_albedo(x, temperature):
     a_ice = 0.6
