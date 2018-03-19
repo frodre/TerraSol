@@ -1,10 +1,15 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
 from bokeh.models import ColumnDataSource, WidgetBox
 from bokeh.models.widgets import TextInput, Select, Slider, Button
+from bokeh.plotting import figure
+from bokeh.models.mappers import LinearColorMapper
+
+import bokeh.palettes as bpal
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
 import xarray as xr
+
 
 
 class PlanetClimateEBM(object):
@@ -273,22 +278,36 @@ class EnergyBalanceModel(object):
 
         return dataset
 
+
 class SimpleClimate(object):
     """
     Planetary climate class that only uses albedo and a column IR opacity to approximate surface temperature
     """
-    
-    def __init__(self,terra_sol_obj, plot_width=800,
-                tau_star=0.84, f_cloud=0.7, A_cloud=0.4,
-                f_land = 0.3, A_land=0.2):
-        sigma = 5.670367e-8  # Stefan-Boltzmann Constant W.m^-2.K^-4
-        self.S0 = terra_sol_obj.get_planet_energy_in()/4.
-        self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
-        self.Ts = (((1-self.alpha)*self.S0*(1+.75*tau_star))/(4.*sigma))**.25t
-    
 
-if __name__ == '__main__':
-    model = EnergyBalanceModel(Q=300)
-    print(model.solve_climate())
-    data = model.convert_1d_to_grid()
-    x = 1
+    SIGMA = 5.670367e-8
+    
+    def __init__(self, terra_sol_obj, plot_width=800, plot_height=400,
+                 tau_star=0.84, f_cloud=0.7, A_cloud=0.4,
+                 f_land = 0.3, A_land=0.2):
+        sigma = 5.670367e-8  # Stefan-Boltzmann Constant W.m^-2.K^-4
+        self.S0 = terra_sol_obj.get_planet_energy_in()
+        self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
+
+        tau_vals = np.logspace(np.log10(0.1), np.log10(150), 100)
+        alpha_vals = np.arange(0, 1, 0.01)
+        alpha_vals, tau_vals = np.meshgrid(alpha_vals, tau_vals)
+
+        tmp = self.calc_Ts(tau_vals, alpha_vals)
+        self.Ts = 9 / 5 * (tmp - 273) + 32
+
+        self.plot = figure(x_range=[0,1], y_range=[0.1, 150], plot_width=plot_width,
+                   plot_height=plot_height, toolbar_location='above', y_axis_type='log',
+                   tools='pan,wheel_zoom,reset')
+
+        rdylbu = bpal.RdYlBu[11]
+        cmapper = LinearColorMapper(palette=rdylbu, low=32, high=112)
+        self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
+                                   color_mapper=cmapper)
+
+    def calc_Ts(self, tau, alpha):
+        return (((1-alpha) * self.S0 * (1 + 0.75 * tau)) / (4 * self.SIGMA))**0.25
