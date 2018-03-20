@@ -1,6 +1,6 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
 from bokeh.models import ColumnDataSource, WidgetBox
-from bokeh.models.widgets import TextInput, Select, Slider, Button
+from bokeh.models.widgets import TextInput, Select, Slider, Button, Dropdown
 from bokeh.plotting import figure
 from bokeh.models.mappers import LinearColorMapper
 
@@ -291,6 +291,10 @@ class SimpleClimate(object):
                  f_land=0.3, A_land=0.2):
 
         self.S0 = terra_sol_obj.get_planet_energy_in()
+        self.A_cloud = A_cloud
+        self.A_land = A_land
+        self.f_cloud = f_cloud
+        self.f_land = f_land
         self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
         self.tau_star = tau_star
 
@@ -305,7 +309,7 @@ class SimpleClimate(object):
         self.plot = figure(x_range=[0,1], y_range=[0.1, 150],
                            plot_width=plot_width, plot_height=plot_height,
                            toolbar_location='above', y_axis_type='log',
-                           tools='pan,wheel_zoom,reset')
+                           tools=None)
 
         rdylbu = bpal.RdYlBu[11]
         cmapper = LinearColorMapper(palette=rdylbu, low=32, high=112)
@@ -330,6 +334,48 @@ class SimpleClimate(object):
                                      size=20, line_color='black')
         self.Venus = self.plot.circle(.77, 145, fill_color='plum', size=20,
                                       line_color='black')
+
+    def init_climate_wx(self):
+
+        cloud_frac_slider = Slider(start=0, end=1, step=0.05,
+                                   value=self.f_cloud,
+                                   title='Cloud Fraction')
+        cloud_albedo_slider = Slider(start=0, end=1, step=0.05,
+                                     value=self.A_cloud,
+                                     title='Cloud Albedo')
+        land_frac_slider = Slider(start=0, end=1, step=0.05,
+                                  value=self.f_land,
+                                  title='Land Fraction')
+        land_albedo_slider = Slider(start=0, end=1, step=0.05,
+                                    value=self.A_land,
+                                    title='Land Albedo')
+
+        tau_star_opts = [('Mars' , 0),
+                         ('Earth (100 ppm CO2)', 0.66),
+                         ('Earth (200 ppm CO2)', 0.75),
+                         ('Earth (400 ppm CO2)', 0.84),
+                         ('Earth (800 ppm CO2)', 0.93),
+                         ('Earth (1600 ppm CO2)', 1.02),
+                         ('Earth (3200 ppm CO2)', 1.12),
+                         ('Titan', 3),
+                         ('Venus', 145)]
+
+        greenhouse_dropdown = Dropdown(label='Preset Greenhouse Effect',
+                                       button_type='primary',
+                                       menu=tau_star_opts)
+
+        tau_star_slider = Slider(start=-1, end=np.log10(150), step=0.1,
+                                 value=self.tau_star,
+                                 title='Atmosphere Greenhouse Effect')
+
+        def _tau_dropdown_handler(attr, old, new):
+            tau_star_slider.value = new
+
+        greenhouse_dropdown.on_change('value', _tau_dropdown_handler)
+
+        albedo_wx = WidgetBox(land_albedo_slider, land_frac_slider,
+                              cloud_albedo_slider, cloud_frac_slider)
+        tau_wx = WidgetBox(greenhouse_dropdown, tau_star_slider)
 
     def calc_Ts(self, tau, alpha):
         numer = (1-alpha) * self.S0 * (1 + 0.75 * tau)
