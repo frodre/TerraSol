@@ -292,9 +292,11 @@ class SimpleClimate(object):
         sigma = 5.670367e-8  # Stefan-Boltzmann Constant W.m^-2.K^-4
         self.S0 = terra_sol_obj.get_planet_energy_in()
         self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
+        self.tau_star = tau_star
 
-        tau_vals = np.logspace(np.log10(0.1), np.log10(150), 1000)
-        alpha_vals = np.linspace(0, 1, 1000)
+
+        tau_vals = np.logspace(np.log10(0.1), np.log10(150), num=1000)
+        alpha_vals = np.linspace(0, 1, num=1000)
         alpha_vals, tau_vals = np.meshgrid(alpha_vals, tau_vals)
 
         tmp = self.calc_Ts(tau_vals, alpha_vals)
@@ -308,6 +310,14 @@ class SimpleClimate(object):
         cmapper = LinearColorMapper(palette=rdylbu, low=32, high=112)
         self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
                                    color_mapper=cmapper)
+        #Lines for current selection of GHGs/albedo
+        self.alpha_line = self.plot.line([self.alpha, self.alpha], [.1,150], line_color='black', line_width=2)
+        self.tau_line = self.plot.line([0,1], [self.tau_star, self.tau_star], line_color='black', line_width=2)
+        
+        #Points for Mars, Venus, and Earth (400 ppm CO2)
+        self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine', size=20, line_color='black')
+        self.Mars = self.plot.circle(.25, 0.15, fill_color='salmon', size=20, line_color='black')#really tau*=0, but want to be visible
+        self.Venus = self.plot.cirlce(.77, 145, fill_color='plum', size=20, line_color='black')
 
     def calc_Ts(self, tau, alpha):
         return (((1-alpha) * self.S0 * (1 + 0.75 * tau)) / (4 * self.SIGMA))**0.25
