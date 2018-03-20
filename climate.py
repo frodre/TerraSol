@@ -294,6 +294,7 @@ class SimpleClimate(object):
         self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
         self.tau_star = tau_star
 
+
         tau_vals = np.logspace(np.log10(0.1), np.log10(150), num=1000)
         alpha_vals = np.linspace(0, 1, num=1000)
         alpha_vals, tau_vals = np.meshgrid(alpha_vals, tau_vals)
