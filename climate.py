@@ -293,8 +293,8 @@ class SimpleClimate(object):
         self.S0 = terra_sol_obj.get_planet_energy_in()
         self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
 
-        tau_vals = np.logspace(np.log10(0.1), np.log10(150), 100)
-        alpha_vals = np.arange(0, 1, 0.01)
+        tau_vals = np.logspace(np.log10(0.1), np.log10(150), 1000)
+        alpha_vals = np.linspace(0, 1, 1000)
         alpha_vals, tau_vals = np.meshgrid(alpha_vals, tau_vals)
 
         tmp = self.calc_Ts(tau_vals, alpha_vals)
