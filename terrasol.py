@@ -120,6 +120,7 @@ class TerraSol(object):
         star_update = dict(radius=[new_radius],
                            color=[new_color],
                            T_eff=[new_t_eff],
+                           luminosity=[new_luminosity],
                            energy_out=[new_energy_out])
 
         self.star_data.data.update(star_update)
