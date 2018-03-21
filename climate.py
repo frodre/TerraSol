@@ -1,5 +1,5 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
-from bokeh.models import ColumnDataSource, WidgetBox
+from bokeh.models import ColumnDataSource, WidgetBox, ColorBar
 from bokeh.models.widgets import TextInput, Select, Slider, Button, Dropdown
 from bokeh.plotting import figure
 from bokeh.models.mappers import LinearColorMapper
@@ -452,6 +452,10 @@ class SimpleClimate(object):
         self.img.level = 'underlay'
         self.plot.xaxis.axis_label = 'Albedo'
         self.plot.yaxis.axis_label = 'Greenhouse effect'
+        
+        color_bar = ColorBar(color_mapper=cmapper, major_label_text_font_size="12pt",
+                             label_standoff=6, location=(0, 0))
+        self.plot.add_layout(color_bar, 'right')
 
     def _update_albedo_line(self):
         self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]
