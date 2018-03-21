@@ -337,9 +337,9 @@ class SimpleClimate(object):
         self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine',
                                       size=20, line_color='black')
         # really tau*=0, but want to be visible
-        self.Mars = self.plot.circle(.25, 0.15, fill_color='salmon',
+        self.Mars = self.plot.circle(.25, 0.125, fill_color='salmon',
                                      size=20, line_color='black')
-        self.Venus = self.plot.circle(.77, 145, fill_color='plum', size=20,
+        self.Venus = self.plot.circle(.77, 125, fill_color='plum', size=20,
                                       line_color='black')
 
     def init_climate_wx(self):
@@ -450,6 +450,8 @@ class SimpleClimate(object):
         self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
                                    color_mapper=cmapper)
         self.img.level = 'underlay'
+        self.plot.xaxis.axis_label = 'Albedo'
+        self.plot.yaxis.axis_label = 'Greenhouse effect'
 
     def _update_albedo_line(self):
         self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]
@@ -459,8 +461,11 @@ class SimpleClimate(object):
 
     def _update_Ts_plot(self):
         self.S0 = self._terra_sol.get_planet_energy_in()
-        self.plot.title.text = ('Surface Temperature (F) for Solar Input: '
-                                '{:.2f} W/m^2'.format(self.S0))
+        Ts_F_up = self.calc_Ts_F(np.array(self.tau_star),np.array(self.alpha))
+        if np.logical_and(Ts_F_up>32,Ts_F_up<112): hab = 'potentially habitable'
+        else: hab = 'not habitable'
+        title_text = 'Surface temperature for solar input of %.2f W/m^2 is %.1f degrees F (%s).' % (self.S0,Ts_F_up,hab)
+        self.plot.title.text = (title_text)
         self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
         self.img.data_source.data['image'] = [self.Ts]
 
