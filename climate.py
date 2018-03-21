@@ -350,7 +350,7 @@ class SimpleClimate(object):
                                       legend='Venus')
 
         self.plot.legend[0].background_fill_alpha = 0.5
-        self.plot.legend[0].location = 'lower_left'
+        self.plot.legend[0].location = 'bottom_left'
 
     def init_climate_wx(self):
 
