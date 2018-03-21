@@ -339,12 +339,18 @@ class SimpleClimate(object):
 
         # Points for Mars, Venus, and Earth (400 ppm CO2)
         self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine',
-                                      size=20, line_color='black')
+                                      size=20, line_color='black',
+                                      legend='Earth')
         # really tau*=0, but want to be visible
         self.Mars = self.plot.circle(.25, 0.15, fill_color='salmon',
-                                     size=20, line_color='black')
+                                     size=20, line_color='black',
+                                     legend='Mars')
         self.Venus = self.plot.circle(.77, 145, fill_color='plum', size=20,
-                                      line_color='black')
+                                      line_color='black',
+                                      legend='Venus')
+
+        self.plot.legend[0].background_fill_alpha = 0.5
+        self.plot.legend[0].location = 'lower_left'
 
     def init_climate_wx(self):
 
