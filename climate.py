@@ -461,11 +461,16 @@ class SimpleClimate(object):
 
     def _update_Ts_plot(self):
         self.S0 = self._terra_sol.get_planet_energy_in()
-        Ts_F_up = self.calc_Ts_F(np.array(self.tau_star),np.array(self.alpha))
-        if np.logical_and(Ts_F_up>32,Ts_F_up<112): hab = 'potentially habitable'
-        else: hab = 'not habitable'
-        title_text = 'Surface temperature for solar input of %.2f W/m^2 is %.1f degrees F (%s).' % (self.S0,Ts_F_up,hab)
-        self.plot.title.text = (title_text)
+        planet_Ts_F = self.calc_Ts_F(self.tau_star, self.alpha)
+
+        if 32 < planet_Ts_F < 112:
+            hab = 'potentially habitable'
+        else:
+            hab = 'not habitable'
+
+        title_text = ('Surface temperature for solar input of %.2f W/m^2 '
+                      'is {:.1f} degrees F {:s}.'.format(self.S0, planet_Ts_F, hab))
+        self.plot.title.text = title_text
         self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
         self.img.data_source.data['image'] = [self.Ts]
 
