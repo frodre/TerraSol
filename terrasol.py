@@ -94,9 +94,9 @@ class TerraSol(object):
         star_text = self.create_star_text_html()
         planet_text = self.create_planet_text_html()
 
-        star_div = Div(text=star_text, width=266, height=100)
-        planet_div = Div(text=planet_text, width=266, height=100)
-        empty_div = Div(width=266, height=100)
+        planet_div = Div(text=planet_text, width=325, height=175)
+        star_div = Div(text=star_text, width=350, height=175)
+        empty_div = Div(width=50, height=175)
 
         self.star_div = star_div
         self.planet_div = planet_div
@@ -198,7 +198,42 @@ class TerraSol(object):
 
         luminosity *= LUMINOSITY_OUR_SUN
         radius *= AU_IN_M
-
+        
+        #Set types
+        Lsun = 3.828E26
+        if np.logical_and(t_eff >= 30000, luminosity >= 30000*Lsun):
+            Harvard_class = 'O type'      
+            MSf = '~0.00003%'
+            lifetime = '< 100 Myr'
+        elif np.logical_and(np.logical_and(t_eff<30000,t_eff>=10000),np.logical_and(luminosity < 30000*Lsun, luminosity >= 25*Lsun)):
+            Harvard_class = 'B type'      
+            MSf = '0.13%'
+            lifetime = '100 Myr - 1 Gyr'
+        elif np.logical_and(np.logical_and(t_eff<10000,t_eff>=7500),np.logical_and(luminosity < 25*Lsun, luminosity >= 5*Lsun)):
+            Harvard_class = 'A type'      
+            MSf = '0.6%'
+            lifetime = '2-4 Gyr'
+        elif np.logical_and(np.logical_and(t_eff<7500,t_eff>=6001),np.logical_and(luminosity < 5*Lsun, luminosity >= 1.5*Lsun)):
+            Harvard_class = 'F type'      
+            MSf = '3%'
+            lifetime = '4-9 Gyr'
+        elif np.logical_and(np.logical_and(t_eff<6001,t_eff>=5200),np.logical_and(luminosity < 1.5*Lsun, luminosity >= .6*Lsun)):
+            Harvard_class = 'G type'      
+            MSf = '7.6%'
+            lifetime = '5-15 Gyr'
+        elif np.logical_and(np.logical_and(t_eff<5200,t_eff>=3700),np.logical_and(luminosity < .6*Lsun, luminosity >= .08*Lsun)):
+            Harvard_class = 'K type'      
+            MSf = '12.1%'
+            lifetime = '15-75 Gyr'    
+        elif np.logical_and(np.logical_and(t_eff<3700,t_eff>=2400),luminosity < .08*Lsun):
+            Harvard_class = 'M type'      
+            MSf = '76.45%'
+            lifetime = '> 100 Gyr'
+        else:
+            Harvard_class = 'N/A'      
+            MSf = 'N/A'
+            lifetime = 'N/A'
+            
         text = """
                 <table style="width:100%">
                     <tr><th colspan="2" style={title_style}>{name} Characteristics</th></tr>
@@ -216,7 +251,19 @@ class TerraSol(object):
                     </tr>
                     <tr>
                         <td style={left_style}>Energy Flux:</td>
-                        <td style={right_style}>{energy_out:1.4e} W/m^</td>
+                        <td style={right_style}>{energy_out:1.4e} W/m^2</td>
+                    </tr>
+                    <tr>
+                        <td style={left_style}>Star classification:</td>
+                        <td style={right_style}>{Harvard_class:}</td>
+                    </tr>
+                    <tr>
+                        <td style={left_style}>Fraction of Main Sequence stars:</td>
+                        <td style={right_style}>{MSf:}</td>
+                    </tr>
+                    <tr>
+                        <td style={left_style}>Lifetime on Main Sequence:</td>
+                        <td style={right_style}>{lifetime:}</td>
                     </tr>
                 </table>""".format(title_style=title_style,
                                    name=name,
@@ -225,7 +272,11 @@ class TerraSol(object):
                                    t_eff=t_eff,
                                    luminosity=luminosity,
                                    radius=radius,
-                                   energy_out=energy_out)
+                                   energy_out=energy_out,
+                                   Harvard_class=Harvard_class,
+                                   MSf=MSf,
+                                   lifetime=lifetime
+                                   )
 
         return text
 
