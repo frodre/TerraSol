@@ -286,35 +286,42 @@ class SimpleClimate(object):
 
     SIGMA = 5.670367e-8 # Stefan-Boltzmann Constant W.m^-2.K^-4
     
-    def __init__(self, terra_sol_obj, plot_width=800, plot_height=400,
+    def __init__(self, terra_sol_obj=None, S0=1.3612e3,
+                 plot_width=800, plot_height=400,
                  tau_star=0.84, f_cloud=0.7, A_cloud=0.4,
                  f_land=0.3, A_land=0.2):
 
-        self.S0 = terra_sol_obj.get_planet_energy_in()
+        self._terra_sol = terra_sol_obj
+        if terra_sol_obj is not None:
+            self.S0 = terra_sol_obj.get_planet_energy_in()
+        else:
+            self.S0 = S0
+
         self.A_cloud = A_cloud
         self.A_land = A_land
         self.f_cloud = f_cloud
         self.f_land = f_land
-        self.alpha = f_cloud*A_cloud + (1-f_cloud)*f_land*A_land
+        self.alpha = self.calc_albedo()
         self.tau_star = tau_star
 
         # Create parameter space for plot
-        tau_vals = np.logspace(np.log10(0.1), np.log10(150), num=1000)
-        alpha_vals = np.linspace(0, 1, num=1000)
+        tau_vals = np.logspace(np.log10(0.1), np.log10(150), num=300)
+        alpha_vals = np.linspace(0, 1, num=300)
         alpha_vals, tau_vals = np.meshgrid(alpha_vals, tau_vals)
+        self.tau_grid = tau_vals
+        self.alpha_grid = alpha_vals
 
-        Ts_K = self.calc_Ts(tau_vals, alpha_vals)
-        self.Ts = 9 / 5 * (Ts_K - 273) + 32
+        self.Ts = self.calc_Ts_F(tau_vals, alpha_vals)
 
-        self.plot = figure(x_range=[0,1], y_range=[0.1, 150],
+        self.plot = figure(x_range=[0, 1], y_range=[0.1, 150],
                            plot_width=plot_width, plot_height=plot_height,
                            toolbar_location='above', y_axis_type='log',
-                           tools=None)
+                           tools='box_zoom, reset')
 
-        rdylbu = bpal.RdYlBu[11]
-        cmapper = LinearColorMapper(palette=rdylbu, low=32, high=112)
-        self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
-                                   color_mapper=cmapper)
+        self.img = None
+        self._plot_Ts_grid()
+
+        self.model_wx = self.init_climate_wx()
 
         # Lines for current selection of GHGs/albedo
         self.alpha_line = self.plot.line([self.alpha, self.alpha],
@@ -325,7 +332,7 @@ class SimpleClimate(object):
                                        [self.tau_star, self.tau_star],
                                        line_color='black',
                                        line_width=2)
-        
+
         # Points for Mars, Venus, and Earth (400 ppm CO2)
         self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine',
                                       size=20, line_color='black')
@@ -350,15 +357,15 @@ class SimpleClimate(object):
                                     value=self.A_land,
                                     title='Land Albedo')
 
-        tau_star_opts = [('Mars' , 0),
-                         ('Earth (100 ppm CO2)', 0.66),
-                         ('Earth (200 ppm CO2)', 0.75),
-                         ('Earth (400 ppm CO2)', 0.84),
-                         ('Earth (800 ppm CO2)', 0.93),
-                         ('Earth (1600 ppm CO2)', 1.02),
-                         ('Earth (3200 ppm CO2)', 1.12),
-                         ('Titan', 3),
-                         ('Venus', 145)]
+        tau_star_opts = [('Mars', '0'),
+                         ('Earth (100 ppm CO2)', '0.66'),
+                         ('Earth (200 ppm CO2)', '0.75'),
+                         ('Earth (400 ppm CO2)', '0.84'),
+                         ('Earth (800 ppm CO2)', '0.93'),
+                         ('Earth (1600 ppm CO2)', '1.02'),
+                         ('Earth (3200 ppm CO2)', '1.12'),
+                         ('Titan', '3'),
+                         ('Venus', '145')]
 
         greenhouse_dropdown = Dropdown(label='Preset Greenhouse Effect',
                                        button_type='primary',
@@ -366,18 +373,96 @@ class SimpleClimate(object):
 
         tau_star_slider = Slider(start=-1, end=np.log10(150), step=0.1,
                                  value=self.tau_star,
-                                 title='Atmosphere Greenhouse Effect')
+                                 title='Atmosphere Greenhouse Effect (10^x)')
+
+        refresh_s0_button = Button(label='Refresh Solar In & Calculate '
+                                         'Hab. Zone')
+
+        def _land_alb_handler(attr, old, new):
+            self.A_land = new
+            self.alpha = self.calc_albedo()
+            self._update_albedo_line()
+
+        def _land_frac_handler(attr, old, new):
+            self.f_land = new
+            self.alpha = self.calc_albedo()
+            self._update_albedo_line()
+
+        def _cloud_alb_handler(attr, old, new):
+            self.A_cloud = new
+            self.alpha = self.calc_albedo()
+            self._update_albedo_line()
+
+        def _cloud_frac_handler(attr, old, new):
+            self.f_cloud = new
+            self.alpha = self.calc_albedo()
+            self._update_albedo_line()
+
+        def _tau_slider_handler(attr, old, new):
+            self.tau_star = 10**new
+            self._update_greenhouse_line()
+
+        def _refresh_s0_handler():
+            refresh_s0_button.disabled = True
+            self._update_Ts_plot()
+            refresh_s0_button.disabled = False
 
         def _tau_dropdown_handler(attr, old, new):
-            tau_star_slider.value = new
+            slide_value = np.log10(float(new))
+            tau_star_slider.value = slide_value
+            _tau_slider_handler(None, None, slide_value)
 
+        cloud_albedo_slider.on_change('value', _cloud_alb_handler)
+        cloud_frac_slider.on_change('value', _cloud_frac_handler)
+        land_albedo_slider.on_change('value', _land_alb_handler)
+        land_frac_slider.on_change('value', _land_frac_handler)
+        tau_star_slider.on_change('value', _tau_slider_handler)
+        refresh_s0_button.on_click(_refresh_s0_handler)
         greenhouse_dropdown.on_change('value', _tau_dropdown_handler)
 
         albedo_wx = WidgetBox(land_albedo_slider, land_frac_slider,
                               cloud_albedo_slider, cloud_frac_slider)
-        tau_wx = WidgetBox(greenhouse_dropdown, tau_star_slider)
+        tau_wx = WidgetBox(greenhouse_dropdown, tau_star_slider,
+                           refresh_s0_button)
+
+        return [albedo_wx, tau_wx]
 
     def calc_Ts(self, tau, alpha):
         numer = (1-alpha) * self.S0 * (1 + 0.75 * tau)
         denom = 4 * self.SIGMA
         return (numer / denom)**(1/4)
+
+    def calc_Ts_F(self, tau, alpha):
+        res = 9 / 5 * (self.calc_Ts(tau, alpha) - 273) + 32
+        res = res.astype(np.float32)
+        return res
+
+    def calc_albedo(self):
+        cloud = self.f_cloud * self.A_cloud
+        land = (1 - self.f_cloud) * self.f_land * self.A_land
+        alpha = cloud + land
+
+        return alpha
+
+    def _plot_Ts_grid(self):
+        rdylbu = bpal.RdYlBu[11]
+        cmapper = LinearColorMapper(palette=rdylbu, low=32, high=112)
+        self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
+                                   color_mapper=cmapper)
+        self.img.level = 'underlay'
+
+    def _update_albedo_line(self):
+        self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]
+
+    def _update_greenhouse_line(self):
+        self.tau_line.data_source.data['y'] = [self.tau_star, self.tau_star]
+
+    def _update_Ts_plot(self):
+        self.S0 = self._terra_sol.get_planet_energy_in()
+        self.plot.title.text = ('Surface Temperature (F) for Solar Input: '
+                                '{:.2f} W/m^2'.format(self.S0))
+        self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
+        self.img.data_source.data['image'] = [self.Ts]
+
+
+

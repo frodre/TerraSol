@@ -1,4 +1,4 @@
-from bokeh.plotting import curdoc
+from bokeh.plotting import curdoc, show
 from bokeh.layouts import layout
 
 import terrasol
@@ -20,10 +20,9 @@ plot_layout = layout([[terrasol_ux.plot],
                       terrasol_ux.div_row,
                       terrasol_ux.sliders,
                       [simple_climate_ux.plot],
-                      # climate_ux.input_wx,
-                      # [climate_ux.calc_button]
-                      ],
+                      simple_climate_ux.model_wx],
                      sizing_mode='fixed')
+
 # show(plot_layout)
 curdoc().add_root(plot_layout)
 curdoc().title = 'TerraSol'
