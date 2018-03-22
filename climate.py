@@ -434,7 +434,10 @@ class SimpleClimate(object):
 
     def calc_Ts_F(self, tau, alpha):
         res = 9 / 5 * (self.calc_Ts(tau, alpha) - 273) + 32
-        res = res.astype(np.float32)
+
+        if isinstance(res, np.ndarray):
+            res = res.astype(np.float32)
+
         return res
 
     def calc_albedo(self):
@@ -472,8 +475,8 @@ class SimpleClimate(object):
         else:
             hab = 'not habitable'
 
-        title_text = ('Surface temperature for solar input of %.2f W/m^2 '
-                      'is {:.1f} degrees F {:s}.'.format(self.S0, planet_Ts_F, hab))
+        title_text = ('Surface Temp. for solar input of {:.2f} W/m^2 '
+                      'is {:.1f} degrees F ({}).'.format(self.S0, planet_Ts_F, hab))
         self.plot.title.text = title_text
         self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
         self.img.data_source.data['image'] = [self.Ts]
