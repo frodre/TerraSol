@@ -366,7 +366,7 @@ class SimpleClimate(object):
                                     value=self.A_land,
                                     title='Land Albedo')
 
-        tau_star_opts = [('Mars', '0'),
+        tau_star_opts = [('Mars', '0.125'),
                          ('Earth (100 ppm CO2)', '0.66'),
                          ('Earth (200 ppm CO2)', '0.75'),
                          ('Earth (400 ppm CO2)', '0.84'),
@@ -374,7 +374,7 @@ class SimpleClimate(object):
                          ('Earth (1600 ppm CO2)', '1.02'),
                          ('Earth (3200 ppm CO2)', '1.12'),
                          ('Titan', '3'),
-                         ('Venus', '145')]
+                         ('Venus', '125')]
 
         greenhouse_dropdown = Dropdown(label='Preset Greenhouse Effect',
                                        button_type='primary',
