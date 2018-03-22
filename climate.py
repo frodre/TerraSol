@@ -1,5 +1,5 @@
 # Climate model based off of Judy and Hansi's energy balance notebook
-from bokeh.models import ColumnDataSource, WidgetBox
+from bokeh.models import ColumnDataSource, WidgetBox, ColorBar
 from bokeh.models.widgets import TextInput, Select, Slider, Button, Dropdown
 from bokeh.plotting import figure
 from bokeh.models.mappers import LinearColorMapper
@@ -320,6 +320,9 @@ class SimpleClimate(object):
 
         self.img = None
         self._plot_Ts_grid()
+        self._generate_plot_title()
+        self.plot.xaxis.axis_label = 'Albedo'
+        self.plot.yaxis.axis_label = 'Greenhouse Gas Coefficient'
 
         self.model_wx = self.init_climate_wx()
 
@@ -335,12 +338,18 @@ class SimpleClimate(object):
 
         # Points for Mars, Venus, and Earth (400 ppm CO2)
         self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine',
-                                      size=20, line_color='black')
+                                      size=20, line_color='black',
+                                      legend='Earth')
         # really tau*=0, but want to be visible
-        self.Mars = self.plot.circle(.25, 0.15, fill_color='salmon',
-                                     size=20, line_color='black')
-        self.Venus = self.plot.circle(.77, 145, fill_color='plum', size=20,
-                                      line_color='black')
+        self.Mars = self.plot.circle(.25, 0.125, fill_color='salmon',
+                                     size=20, line_color='black',
+                                     legend='Mars')
+        self.Venus = self.plot.circle(.77, 125, fill_color='plum', size=20,
+                                      line_color='black',
+                                      legend='Venus')
+
+        self.plot.legend[0].background_fill_alpha = 0.5
+        self.plot.legend[0].location = 'bottom_left'
 
     def init_climate_wx(self):
 
@@ -357,7 +366,7 @@ class SimpleClimate(object):
                                     value=self.A_land,
                                     title='Land Albedo')
 
-        tau_star_opts = [('Mars', '0'),
+        tau_star_opts = [('Mars', '0.125'),
                          ('Earth (100 ppm CO2)', '0.66'),
                          ('Earth (200 ppm CO2)', '0.75'),
                          ('Earth (400 ppm CO2)', '0.84'),
@@ -365,7 +374,7 @@ class SimpleClimate(object):
                          ('Earth (1600 ppm CO2)', '1.02'),
                          ('Earth (3200 ppm CO2)', '1.12'),
                          ('Titan', '3'),
-                         ('Venus', '145')]
+                         ('Venus', '125')]
 
         greenhouse_dropdown = Dropdown(label='Preset Greenhouse Effect',
                                        button_type='primary',
@@ -434,7 +443,10 @@ class SimpleClimate(object):
 
     def calc_Ts_F(self, tau, alpha):
         res = 9 / 5 * (self.calc_Ts(tau, alpha) - 273) + 32
-        res = res.astype(np.float32)
+
+        if isinstance(res, np.ndarray):
+            res = res.astype(np.float32)
+
         return res
 
     def calc_albedo(self):
@@ -450,19 +462,37 @@ class SimpleClimate(object):
         self.img = self.plot.image([self.Ts], [0], [0.1], [1], [150],
                                    color_mapper=cmapper)
         self.img.level = 'underlay'
+        self.plot.xaxis.axis_label = 'Albedo'
+        self.plot.yaxis.axis_label = 'Greenhouse effect'
+
+        color_bar = ColorBar(color_mapper=cmapper, major_label_text_font_size="12pt",
+                             label_standoff=6, location=(0, 0))
+        self.plot.add_layout(color_bar, 'right')
 
     def _update_albedo_line(self):
         self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]
+        self._generate_plot_title()
 
     def _update_greenhouse_line(self):
         self.tau_line.data_source.data['y'] = [self.tau_star, self.tau_star]
+        self._generate_plot_title()
+
+    def _generate_plot_title(self):
+        planet_Ts_F = self.calc_Ts_F(self.tau_star, self.alpha)
+        if 32 < planet_Ts_F < 112:
+            hab = 'potentially habitable'
+        else:
+            hab = 'not habitable'
+
+        title_text = ('Surface Temp. for solar input of {:.2f} W/m^2 '
+                      'is {:.1f} degrees F ({}).'.format(self.S0, planet_Ts_F, hab))
+        self.plot.title.text = title_text
 
     def _update_Ts_plot(self):
         self.S0 = self._terra_sol.get_planet_energy_in()
-        self.plot.title.text = ('Surface Temperature (F) for Solar Input: '
-                                '{:.2f} W/m^2'.format(self.S0))
         self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
         self.img.data_source.data['image'] = [self.Ts]
+        self._generate_plot_title()
 
 
 
