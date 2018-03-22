@@ -198,41 +198,8 @@ class TerraSol(object):
 
         luminosity *= LUMINOSITY_OUR_SUN
         radius *= AU_IN_M
-        
-        #Set types
-        Lsun = 3.828E26
-        if np.logical_and(t_eff >= 30000, luminosity >= 30000*Lsun):
-            Harvard_class = 'O type'      
-            MSf = '~0.00003%'
-            lifetime = '< 100 Myr'
-        elif np.logical_and(np.logical_and(t_eff<30000,t_eff>=10000),np.logical_and(luminosity < 30000*Lsun, luminosity >= 25*Lsun)):
-            Harvard_class = 'B type'      
-            MSf = '0.13%'
-            lifetime = '100 Myr - 1 Gyr'
-        elif np.logical_and(np.logical_and(t_eff<10000,t_eff>=7500),np.logical_and(luminosity < 25*Lsun, luminosity >= 5*Lsun)):
-            Harvard_class = 'A type'      
-            MSf = '0.6%'
-            lifetime = '2-4 Gyr'
-        elif np.logical_and(np.logical_and(t_eff<7500,t_eff>=6001),np.logical_and(luminosity < 5*Lsun, luminosity >= 1.5*Lsun)):
-            Harvard_class = 'F type'      
-            MSf = '3%'
-            lifetime = '4-9 Gyr'
-        elif np.logical_and(np.logical_and(t_eff<6001,t_eff>=5200),np.logical_and(luminosity < 1.5*Lsun, luminosity >= .6*Lsun)):
-            Harvard_class = 'G type'      
-            MSf = '7.6%'
-            lifetime = '5-15 Gyr'
-        elif np.logical_and(np.logical_and(t_eff<5200,t_eff>=3700),np.logical_and(luminosity < .6*Lsun, luminosity >= .08*Lsun)):
-            Harvard_class = 'K type'      
-            MSf = '12.1%'
-            lifetime = '15-75 Gyr'    
-        elif np.logical_and(np.logical_and(t_eff<3700,t_eff>=2400),luminosity < .08*Lsun):
-            Harvard_class = 'M type'      
-            MSf = '76.45%'
-            lifetime = '> 100 Gyr'
-        else:
-            Harvard_class = 'N/A'      
-            MSf = 'N/A'
-            lifetime = 'N/A'
+
+        harvard_class, msf, lifetime = self._determine_star_type(t_eff, luminosity)
             
         text = """
                 <table style="width:100%">
@@ -255,11 +222,11 @@ class TerraSol(object):
                     </tr>
                     <tr>
                         <td style={left_style}>Star classification:</td>
-                        <td style={right_style}>{Harvard_class:}</td>
+                        <td style={right_style}>{harvard_class:}</td>
                     </tr>
                     <tr>
                         <td style={left_style}>Fraction of Main Sequence stars:</td>
-                        <td style={right_style}>{MSf:}</td>
+                        <td style={right_style}>{msf:}</td>
                     </tr>
                     <tr>
                         <td style={left_style}>Lifetime on Main Sequence:</td>
@@ -273,12 +240,50 @@ class TerraSol(object):
                                    luminosity=luminosity,
                                    radius=radius,
                                    energy_out=energy_out,
-                                   Harvard_class=Harvard_class,
-                                   MSf=MSf,
-                                   lifetime=lifetime
-                                   )
+                                   harvard_class=harvard_class,
+                                   msf=msf,
+                                   lifetime=lifetime)
 
         return text
+
+    @staticmethod
+    def _determine_star_type(t_eff, luminosity):
+        # Set types
+        Lsun = LUMINOSITY_OUR_SUN
+        if t_eff >= 30000 and luminosity >= 30000 * Lsun:
+            harvard_class = 'O type'
+            msf = '~0.00003%'
+            lifetime = '< 100 Myr'
+        elif (10000 <= t_eff < 30000) and (25 * Lsun <= luminosity < 30000 * Lsun):
+            harvard_class = 'B type'
+            msf = '0.13%'
+            lifetime = '100 Myr - 1 Gyr'
+        elif (7500 <= t_eff < 10000) and (5 * Lsun <= luminosity < 25 * Lsun):
+            harvard_class = 'A type'
+            msf = '0.6%'
+            lifetime = '2-4 Gyr'
+        elif (6001 <= t_eff < 7500) and (1.5 * Lsun <= luminosity < 5 * Lsun):
+            harvard_class = 'F type'
+            msf = '3%'
+            lifetime = '4-9 Gyr'
+        elif (5200 <= t_eff < 6001) and (0.6 * Lsun <= luminosity < 1.5 * Lsun):
+            harvard_class = 'G type'
+            msf = '7.6%'
+            lifetime = '5-15 Gyr'
+        elif (3700 <= t_eff < 5200) and (0.08 * Lsun <= luminosity < 0.6 * Lsun):
+            harvard_class = 'K type'
+            msf = '12.1%'
+            lifetime = '15-75 Gyr'
+        elif (2400 <= t_eff < 3700) and luminosity < 0.08 * Lsun:
+            harvard_class = 'M type'
+            msf = '76.45%'
+            lifetime = '> 100 Gyr'
+        else:
+            harvard_class = 'N/A'
+            msf = 'N/A'
+            lifetime = 'N/A'
+
+        return harvard_class, msf, lifetime
 
     def _t_eff_handler(self, attr, old, new):
         self.update_star(new_t_eff=new)
