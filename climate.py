@@ -320,8 +320,7 @@ class SimpleClimate(object):
 
         self.img = None
         self._plot_Ts_grid()
-        self.plot.title.text = ('Surface Temperature (F) for Solar Input: '
-                                '{:.2f} W/m^2'.format(self.S0))
+        self._generate_plot_title()
         self.plot.xaxis.axis_label = 'Albedo'
         self.plot.yaxis.axis_label = 'Greenhouse Gas Coefficient'
 
@@ -470,19 +469,16 @@ class SimpleClimate(object):
                              label_standoff=6, location=(0, 0))
         self.plot.add_layout(color_bar, 'right')
 
-        colorbar = ColorBar(color_mapper=cmapper, location=(0,0))
-        self.plot.add_layout(colorbar, 'right')
-
     def _update_albedo_line(self):
         self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]
+        self._generate_plot_title()
 
     def _update_greenhouse_line(self):
         self.tau_line.data_source.data['y'] = [self.tau_star, self.tau_star]
+        self._generate_plot_title()
 
-    def _update_Ts_plot(self):
-        self.S0 = self._terra_sol.get_planet_energy_in()
+    def _generate_plot_title(self):
         planet_Ts_F = self.calc_Ts_F(self.tau_star, self.alpha)
-
         if 32 < planet_Ts_F < 112:
             hab = 'potentially habitable'
         else:
@@ -491,8 +487,12 @@ class SimpleClimate(object):
         title_text = ('Surface Temp. for solar input of {:.2f} W/m^2 '
                       'is {:.1f} degrees F ({}).'.format(self.S0, planet_Ts_F, hab))
         self.plot.title.text = title_text
+
+    def _update_Ts_plot(self):
+        self.S0 = self._terra_sol.get_planet_energy_in()
         self.Ts = self.calc_Ts_F(self.tau_grid, self.alpha_grid)
         self.img.data_source.data['image'] = [self.Ts]
+        self._generate_plot_title()
 
 
 
