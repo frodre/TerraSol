@@ -320,6 +320,10 @@ class SimpleClimate(object):
 
         self.img = None
         self._plot_Ts_grid()
+        self.plot.title.text = ('Surface Temperature (F) for Solar Input: '
+                                '{:.2f} W/m^2'.format(self.S0))
+        self.plot.xaxis.axis_label = 'Albedo'
+        self.plot.yaxis.axis_label = 'Greenhouse Gas Coefficient'
 
         self.model_wx = self.init_climate_wx()
 
@@ -335,12 +339,18 @@ class SimpleClimate(object):
 
         # Points for Mars, Venus, and Earth (400 ppm CO2)
         self.Earth = self.plot.circle(.3, .84, fill_color='aquamarine',
-                                      size=20, line_color='black')
+                                      size=20, line_color='black',
+                                      legend='Earth')
         # really tau*=0, but want to be visible
         self.Mars = self.plot.circle(.25, 0.125, fill_color='salmon',
-                                     size=20, line_color='black')
+                                     size=20, line_color='black',
+                                     legend='Mars')
         self.Venus = self.plot.circle(.77, 125, fill_color='plum', size=20,
-                                      line_color='black')
+                                      line_color='black',
+                                      legend='Venus')
+
+        self.plot.legend[0].background_fill_alpha = 0.5
+        self.plot.legend[0].location = 'bottom_left'
 
     def init_climate_wx(self):
 
@@ -455,10 +465,13 @@ class SimpleClimate(object):
         self.img.level = 'underlay'
         self.plot.xaxis.axis_label = 'Albedo'
         self.plot.yaxis.axis_label = 'Greenhouse effect'
-        
+
         color_bar = ColorBar(color_mapper=cmapper, major_label_text_font_size="12pt",
                              label_standoff=6, location=(0, 0))
         self.plot.add_layout(color_bar, 'right')
+
+        colorbar = ColorBar(color_mapper=cmapper, location=(0,0))
+        self.plot.add_layout(colorbar, 'right')
 
     def _update_albedo_line(self):
         self.alpha_line.data_source.data['x'] = [self.alpha, self.alpha]

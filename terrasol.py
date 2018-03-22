@@ -46,6 +46,10 @@ class TerraSol(object):
                    plot_height=plot_height, toolbar_location='above',
                    tools='pan,wheel_zoom,reset')
 
+        p.xaxis.axis_label = 'Distance (AU)'
+        p.yaxis.axis_label = 'Distance (AU)'
+        p.title.text = 'TerraSol Simulator'
+
         # Star Data Source
         star_data = ColumnDataSource(data=dict(name=['Sol'],
                                               radius=[stellar_radius],
