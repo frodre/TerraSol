@@ -10,11 +10,23 @@ IR_COLOR_HOT = '#f43a3a'
 IR_COLOR_COLD = '#ff7a1c'
 EARTH_COLOR = '#676300'
 
+
+
 class EarthEnergy(object):
     """Container for functions and pieces of the earth energy balance web
        application"""
 
-    def __init__(self, plot_width=800, plot_height=600):
+    def __init__(self, frac_cloud=0.7, albedo_cloud=0.4, S0=1.3612e3,
+                 frac_land=0.3, albedo_land=0.2, plot_width=800,
+                 plot_height=600):
+
+        vis_energy_in = S0 / 4
+
+        self.a_cloud = albedo_cloud
+        self.a_land = albedo_land
+        self.f_cloud = frac_cloud
+        self.f_land = frac_land
+        self.alpha = self.calc_albedo()
 
         p = figure(x_range=[0, 800], y_range=[0, 600], plot_width=plot_width,
                    plot_height=plot_height)
@@ -80,5 +92,12 @@ class EarthEnergy(object):
                        line_width=3, radius_dimension='x')
 
         self.plot = p
+
+    def calc_albedo(self):
+        cloud = self.f_cloud * self.a_cloud
+        land = (1 - self.f_cloud) * self.f_land * self.a_land
+        alpha = cloud + land
+
+        return alpha
 
 
