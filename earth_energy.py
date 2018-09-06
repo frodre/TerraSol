@@ -11,7 +11,6 @@ IR_COLOR_COLD = '#ff7a1c'
 EARTH_COLOR = '#676300'
 
 
-
 class EarthEnergy(object):
     """Container for functions and pieces of the earth energy balance web
        application"""
@@ -99,5 +98,39 @@ class EarthEnergy(object):
         alpha = cloud + land
 
         return alpha
+
+    @staticmethod
+    def _create_solar_ray(x_vals, y_vals, fig_handle, ray_width):
+
+        data_src = ColumnDataSource(data=dict(width=ray_width))
+
+        line = fig_handle.line(x=x_vals, y=y_vals, color=SUN_COLOR,
+                               line_width='width',
+                               source=data_src)
+
+        return line
+
+    @staticmethod
+    def _solar_ray_width(pct_transmitted, albedo):
+
+        new_pct_transmitted = pct_transmitted * albedo
+
+        linewidth = _normalized_ray_width(new_pct_transmitted)
+
+        return linewidth
+
+
+def _normalized_ray_width(pct_transmitted):
+
+    linewidth_max = 20
+    linewidth_min = 5
+
+    width_range = linewidth_max - linewidth_min
+
+    width = linewidth_min + width_range * pct_transmitted
+
+    return width
+
+
 
 
