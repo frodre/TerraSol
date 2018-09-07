@@ -28,10 +28,11 @@ earth = earth_energy.EarthEnergy()
 #                       simple_climate_ux.model_wx],
 #                      sizing_mode='fixed')
 
-plot_layout = layout([earth.plot])
+plot_layout = layout([[earth.plot],
+                      [earth.albedo_wx]])
 
-show(plot_layout)
-# curdoc().add_root(plot_layout)
-# curdoc().title = 'TerraSol'
+# show(plot_layout)
+curdoc().add_root(plot_layout)
+curdoc().title = 'TerraSol'
 
 
