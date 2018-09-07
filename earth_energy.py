@@ -5,10 +5,16 @@ from bokeh.models.widgets import Div, Slider
 from bokeh.layouts import WidgetBox
 
 SUN_COLOR = '#FCD440'
+CLOUD_COLOR = '#e0e0e0'
+ATM_COLOR = '#ADD8E6'
 SPACE_COLOR = '#190C26'
 IR_COLOR_HOT = '#f43a3a'
 IR_COLOR_COLD = '#ff7a1c'
 EARTH_COLOR = '#676300'
+OCN_COLOR = '#3a6fff'
+
+ENERGY_STR = 'energy'
+ENERGY_PCT_STR = 'pct_energy'
 
 
 class EarthEnergy(object):
@@ -19,7 +25,7 @@ class EarthEnergy(object):
                  frac_land=0.3, albedo_land=0.2, nlayers_atm=1,
                  plot_width=800, plot_height=600):
 
-        vis_energy_in = S0 / 4
+        self.vis_energy_in = S0 / 4
 
         self.a_cloud = albedo_cloud
         self.a_land = albedo_land
@@ -63,9 +69,17 @@ class EarthEnergy(object):
                        bottom=0, top=earth_top,
                        fill_color=EARTH_COLOR)
 
+        self.ocean = p.quad(left=0, right=plot_width,
+                            bottom=0, top=earth_top,
+                            fill_color=OCN_COLOR, fill_alpha=(1-self.sfc_albedo))
+
         atmos = p.quad(left=0, right=plot_width,
                        bottom=earth_top, top=atm_height,
-                       fill_color='#ADD8E6', fill_alpha=0.8)
+                       fill_color=ATM_COLOR)
+
+        self.clouds = p.quad(left=0, right=plot_width,
+                             bottom=earth_top, top=atm_height,
+                             fill_color=CLOUD_COLOR, fill_alpha=self.atm_albedo)
 
         vis_space_to_earth = self._create_solar_ray([0, vis_to_earth_x], [plot_height, earth_top],
                                                     p, 1)
@@ -98,7 +112,8 @@ class EarthEnergy(object):
                        line_width=3, radius_dimension='x')
 
         self.direct_rays = {'down': vis_space_to_earth,
-                            'up': vis_earth_to_space}
+                            'up': vis_earth_to_space,
+                            'down_atm': vis_space_to_atm}
         self.atm_rays = {'down': vis_atm_to_earth,
                          'up': vis_atm_to_space}
 
@@ -203,61 +218,69 @@ class EarthEnergy(object):
 
     def _update_land_refl(self):
         if self.nlayers_atm >= 1:
-            in_energy = self.atm_rays['down'].data_source.data['pct_energy'][0]
+            in_energy_pct, in_energy = self._get_ray_energy_and_pct(self.atm_rays['down'])
         else:
-            in_energy = self.direct_rays['down'].data_source.data['pct_energy'][0]
+            in_energy_pct, in_energy = self._get_ray_energy_and_pct(self.direct_rays['down'])
+
+        self.ocean.glyph.fill_alpha = (1-self.sfc_albedo)
 
         sfc_up_data = self.direct_rays['up']
 
-        if in_energy == 0:
+        _, land_reflect = self._solar_ray_transmit_reflect(in_energy_pct, self.sfc_albedo)
+        if in_energy_pct == 0:
             sfc_up_data.visible = False
         else:
             sfc_up_data.visible = True
 
-            _, land_reflect = self._solar_ray_transmit_reflect(in_energy, self.sfc_albedo)
             up_ray_width = _normalized_ray_width(land_reflect)
-
-            sfc_up_data.data_source.data['pct_energy'][0] = land_reflect
             sfc_up_data.glyph.line_width = up_ray_width
+
+        self._update_ray_energy(sfc_up_data, land_reflect, in_energy)
 
     def _update_atm_refl(self):
 
-        in_energy = self.direct_rays['down'].data_source.data['pct_energy'][0]
+        [in_pct_energy,
+         in_energy] = self._get_ray_energy_and_pct(self.direct_rays['down_atm'])
+
+        self.clouds.glyph.fill_alpha = self.atm_albedo
 
         [atm_transmit,
-         atm_reflect] = self._solar_ray_transmit_reflect(in_energy,
+         atm_reflect] = self._solar_ray_transmit_reflect(in_pct_energy,
                                                          self.atm_albedo)
 
-        atm_down_data = self.atm_rays['down']
-        atm_up_data = self.atm_rays['up']
+        atm_down_ray = self.atm_rays['down']
+        atm_up_ray = self.atm_rays['up']
 
         if atm_transmit == 0:
-            atm_down_data.visible = False
-            atm_down_data.data_source.data['pct_energy'][0] = atm_transmit
+            atm_down_ray.visible = False
         else:
-            atm_down_data.visible = True
+            atm_down_ray.visible = True
             down_ray_width = _normalized_ray_width(atm_transmit)
-            atm_down_data.data_source.data['pct_energy'][0] = atm_transmit
-            atm_down_data.glyph.line_width = down_ray_width
+            atm_down_ray.glyph.line_width = down_ray_width
+
+        self._update_ray_energy(atm_down_ray, atm_transmit, in_energy)
 
         if atm_reflect == 0:
-            atm_up_data.visible = False
-            atm_up_data.data_source.data['pct_energy'][0] = atm_reflect
+            atm_up_ray.visible = False
         else:
-            atm_up_data.visible = True
+            atm_up_ray.visible = True
             up_ray_width = _normalized_ray_width(atm_reflect)
-            atm_up_data.data_source.data['pct_energy'][0] = atm_reflect
-            atm_up_data.glyph.line_width = up_ray_width
+            atm_up_ray.glyph.line_width = up_ray_width
+
+        self._update_ray_energy(atm_up_ray, atm_reflect, in_energy)
 
         self._update_land_refl()
 
+    def _create_solar_ray(self, x_vals, y_vals, fig_handle, pct_original_in):
 
-    @staticmethod
-    def _create_solar_ray(x_vals, y_vals, fig_handle, pct_original_in):
+        tot_energy = self.vis_energy_in * pct_original_in
 
-        data_src = ColumnDataSource(data=dict(x_vals=x_vals,
-                                              y_vals=y_vals,
-                                              pct_energy=[pct_original_in, None]))
+        data_dict = {'x_vals': x_vals, 'y_vals': y_vals,
+                     ENERGY_PCT_STR: [pct_original_in, None],
+                     ENERGY_STR: [tot_energy, None]}
+
+        data_src = ColumnDataSource(data=data_dict)
+
         ray_width = _normalized_ray_width(pct_original_in)
 
         line = fig_handle.line(x='x_vals', y='y_vals', color=SUN_COLOR,
@@ -265,6 +288,23 @@ class EarthEnergy(object):
                                source=data_src)
 
         return line
+
+    @staticmethod
+    def _update_ray_energy(ray, pct_initial_energy, energy):
+
+        ray.data_source.data[ENERGY_PCT_STR][0] = pct_initial_energy
+        ray.data_source.data[ENERGY_STR][0] = energy * pct_initial_energy
+
+    @staticmethod
+    def _get_ray_energy_and_pct(ray):
+
+        pct_energy = ray.data_source.data[ENERGY_PCT_STR][0]
+        energy = ray.data_source.data[ENERGY_STR][0]
+
+        return pct_energy, energy
+
+
+
 
     @staticmethod
     def _solar_ray_transmit_reflect(incoming_pct, albedo):
