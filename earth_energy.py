@@ -4,6 +4,8 @@ from bokeh.models.tools import HoverTool
 from bokeh.models.widgets import Div, Slider
 from bokeh.layouts import WidgetBox
 
+import numpy as np
+
 SUN_COLOR = '#FCD440'
 CLOUD_COLOR = '#e0e0e0'
 ATM_COLOR = '#ADD8E6'
@@ -15,6 +17,11 @@ OCN_COLOR = '#3a6fff'
 
 ENERGY_STR = 'energy'
 ENERGY_PCT_STR = 'pct_energy'
+
+ATM_MAX_LAYERS = 10
+
+#Boltzman Constant
+SIGMA = 5.67e-8
 
 
 class EarthEnergy(object):
@@ -35,6 +42,7 @@ class EarthEnergy(object):
         self.sfc_albedo = self.calc_land_albedo()
         self.atm_albedo = frac_cloud * albedo_cloud
         self.nlayers_atm = nlayers_atm
+        self.atm_emissivity = 1.0
 
         p = figure(x_range=[0, 800], y_range=[0, 600], plot_width=plot_width,
                    plot_height=plot_height)
@@ -65,6 +73,8 @@ class EarthEnergy(object):
         sun_earth_mid_x = vis_to_earth_x / 2
         sun_earth_mid_y = plot_height + sun_earth_slope * sun_earth_mid_x
 
+        self.atm_y_range = [earth_top, atm_height]
+
         earth = p.quad(left=0, right=plot_width,
                        bottom=0, top=earth_top,
                        fill_color=EARTH_COLOR)
@@ -73,13 +83,17 @@ class EarthEnergy(object):
                             bottom=0, top=earth_top,
                             fill_color=OCN_COLOR, fill_alpha=(1-self.sfc_albedo))
 
-        atmos = p.quad(left=0, right=plot_width,
-                       bottom=earth_top, top=atm_height,
-                       fill_color=ATM_COLOR)
+        self.atmos = p.quad(left=0, right=plot_width,
+                            bottom=earth_top, top=atm_height,
+                            fill_color=ATM_COLOR)
 
         self.clouds = p.quad(left=0, right=plot_width,
                              bottom=earth_top, top=atm_height,
                              fill_color=CLOUD_COLOR, fill_alpha=self.atm_albedo)
+
+        self.sfc_bnd = None
+        self.atm_layer_bnds = None
+        self.init_emiss_layers(p, plot_width)
 
         vis_space_to_earth = self._create_solar_ray([0, vis_to_earth_x], [plot_height, earth_top],
                                                     p, 1)
@@ -96,16 +110,22 @@ class EarthEnergy(object):
                                                   p, vis_atm_reflect)
 
         if nlayers_atm >= 1:
-            _, vis_earth_reflect = self._solar_ray_transmit_reflect(vis_atm_transmit, self.sfc_albedo)
+            vis_earth_in, vis_earth_reflect = self._solar_ray_transmit_reflect(vis_atm_transmit,
+                                                                               self.sfc_albedo)
             vis_space_to_earth.visible = False
         else:
-            _, vis_earth_reflect = self._solar_ray_transmit_reflect(1, self.sfc_albedo)
+            vis_earth_in, vis_earth_reflect = self._solar_ray_transmit_reflect(1, self.sfc_albedo)
             vis_atm_to_earth.visible = False
             vis_atm_to_space.visible = False
+            self.atmos.visible = False
+
+        self.sfc_absorbed_vis = vis_earth_in
 
         vis_earth_to_space = self._create_solar_ray([vis_to_earth_x, vis_to_space_x],
                                                     [earth_top, vis_to_space_y],
                                                     p, vis_earth_reflect)
+
+        self._update_ir_emiss_layers()
 
         sun = p.circle(x=0.5, y=599.5, fill_color=SUN_COLOR,
                        line_color='#fcb040', radius=80,
@@ -135,7 +155,25 @@ class EarthEnergy(object):
         atm_albedo = self.f_cloud * self.a_cloud
         return atm_albedo
 
+    def init_emiss_layers(self, fig_handle, plot_width):
+
+        self.sfc_bnd = self._create_emiss_bnd(fig_handle,
+                                              [0, plot_width],
+                                              0, '#000000')
+
+        self.atm_layer_bnds = []
+        for i in range(ATM_MAX_LAYERS):
+            layer = self._create_emiss_bnd(fig_handle,
+                                           [0, plot_width],
+                                           0, '#FFFFFF')
+            layer.visible = False
+            self.atm_layer_bnds.append(layer)
+
     def init_climate_wx(self):
+
+        atm_layer_slider = Slider(start=0, end=10, step=1,
+                                  value=self.nlayers_atm,
+                                  title='Atmosphere: Number of Layers')
 
         cloud_frac_slider = Slider(start=0, end=1, step=0.05,
                                    value=self.f_cloud,
@@ -192,6 +230,16 @@ class EarthEnergy(object):
             self.atm_albedo = self.calc_atm_albedo()
             self._update_atm_refl()
 
+        def _atm_layer_handler(attr, old, new):
+            self.nlayers_atm = new
+
+            if old == 0:
+                self._turn_on_atm()
+            elif old > 0 and new == 0:
+                self._turn_off_atm()
+
+            self._update_ir_emiss_layers()
+
         # def _tau_slider_handler(attr, old, new):
         #     self.tau_star = 10**new
         #     self._update_greenhouse_line()
@@ -201,6 +249,7 @@ class EarthEnergy(object):
         #     tau_star_slider.value = slide_value
         #     _tau_slider_handler(None, None, slide_value)
 
+        atm_layer_slider.on_change('value', _atm_layer_handler)
         cloud_albedo_slider.on_change('value', _cloud_alb_handler)
         cloud_frac_slider.on_change('value', _cloud_frac_handler)
         land_albedo_slider.on_change('value', _land_alb_handler)
@@ -210,11 +259,12 @@ class EarthEnergy(object):
 
         albedo_wx = WidgetBox(land_albedo_slider, land_frac_slider,
                               cloud_albedo_slider, cloud_frac_slider)
+        layer_wx = WidgetBox(atm_layer_slider)
         # tau_wx = WidgetBox(greenhouse_dropdown, tau_star_slider,
         #                    refresh_s0_button)
 
         # return [albedo_wx, tau_wx]
-        return [albedo_wx]
+        return [albedo_wx, layer_wx]
 
     def _update_land_refl(self):
         if self.nlayers_atm >= 1:
@@ -226,7 +276,11 @@ class EarthEnergy(object):
 
         sfc_up_data = self.direct_rays['up']
 
-        _, land_reflect = self._solar_ray_transmit_reflect(in_energy_pct, self.sfc_albedo)
+        land_absorb, land_reflect = self._solar_ray_transmit_reflect(in_energy_pct,
+                                                                     self.sfc_albedo)
+
+        self.sfc_absorbed_vis = land_absorb
+
         if in_energy_pct == 0:
             sfc_up_data.visible = False
         else:
@@ -250,7 +304,6 @@ class EarthEnergy(object):
 
         atm_down_ray = self.atm_rays['down']
         atm_up_ray = self.atm_rays['up']
-
         if atm_transmit == 0:
             atm_down_ray.visible = False
         else:
@@ -271,6 +324,18 @@ class EarthEnergy(object):
 
         self._update_land_refl()
 
+    def _turn_off_atm(self):
+        self.atmos.visible = False
+        self.clouds.visible = False
+        self.atm_albedo = 0
+        self._update_atm_refl()
+
+    def _turn_on_atm(self):
+        self.atmos.visible = True
+        self.clouds.visible = True
+        self.atm_albedo = self.calc_atm_albedo()
+        self._update_atm_refl()
+
     def _create_solar_ray(self, x_vals, y_vals, fig_handle, pct_original_in):
 
         tot_energy = self.vis_energy_in * pct_original_in
@@ -289,6 +354,76 @@ class EarthEnergy(object):
 
         return line
 
+    def _solve_atm_energy(self):
+
+        in_energy = self.sfc_absorbed_vis
+
+        A = np.diag([2]*(self.nlayers_atm+1))
+        if self.nlayers_atm > 0:
+            A += np.diag([-1] * self.nlayers_atm, -1)
+            A += np.diag([-1] * self.nlayers_atm, 1)
+        A[0, 0] = 1
+
+        b = np.array([in_energy] + [0.0] * self.nlayers_atm)
+
+        layer_energy = np.linalg.solve(A, b)
+
+        sfc_energy = layer_energy[0]
+        atm_energy = layer_energy[1:]
+
+        return sfc_energy, atm_energy
+
+    def _get_layer_y_loc(self):
+
+        earth_top, atm_height = self.atm_y_range
+        y_dist = atm_height - earth_top
+        delta_y = y_dist / (self.nlayers_atm + 1)
+        y_locs = [earth_top + (i + 1)*delta_y for i in range(self.nlayers_atm)]
+        return y_locs
+
+    def _update_ir_emiss_layers(self):
+
+        sfc_energy, atm_energy = self._solve_atm_energy()
+
+        self._update_emiss_bnd(self.sfc_bnd, sfc_energy)
+
+        atm_y_locs = self._get_layer_y_loc()
+        for i in range(self.nlayers_atm):
+            emiss_bnd = self.atm_layer_bnds[i]
+            emiss_bnd.visible = True
+            y_loc = atm_y_locs[i]
+            bnd_energy = atm_energy[i]
+
+            self._update_emiss_bnd(emiss_bnd, bnd_energy, y=y_loc)
+
+        for i in range(self.nlayers_atm, ATM_MAX_LAYERS):
+            self.atm_layer_bnds[i].visible = False
+
+    @staticmethod
+    def _update_emiss_bnd(bnd, energy, y=None):
+
+        src = bnd.data_source.data
+        src['layer_energy'][0] = energy
+        src['layer_temp'][0] = _calc_temp(energy)
+
+        if y is not None:
+            src['y_vals'] = [y, y]
+
+    @staticmethod
+    def _create_emiss_bnd(fig_handle, x_vals, y_val, line_color):
+
+        data_dict = {'layer_energy': [0, None],
+                     'layer_temp': [273, None],
+                     'x_vals': x_vals,
+                     'y_vals': [y_val, y_val]}
+
+        layer_src = ColumnDataSource(data=data_dict)
+
+        line = fig_handle.line(x='x_vals', y='y_vals', line_width=2,
+                               line_color=line_color, source=layer_src)
+
+        return line
+
     @staticmethod
     def _update_ray_energy(ray, pct_initial_energy, energy):
 
@@ -302,9 +437,6 @@ class EarthEnergy(object):
         energy = ray.data_source.data[ENERGY_STR][0]
 
         return pct_energy, energy
-
-
-
 
     @staticmethod
     def _solar_ray_transmit_reflect(incoming_pct, albedo):
@@ -325,6 +457,12 @@ def _normalized_ray_width(pct_transmitted):
     width = linewidth_min + width_range * pct_transmitted
 
     return width
+
+def _calc_temp(energy):
+
+    temp = (energy / SIGMA) ** (1/4)
+
+    return temp
 
 
 
