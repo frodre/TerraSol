@@ -476,8 +476,12 @@ class EarthEnergy(object):
             delta_y = np.diff(self.atm_y_range)[0]
 
         self.sfc_ir.visible = True
-        self.sfc_ir.y_start = self.atm_y_range[0]
-        self.sfc_ir.y_end = self.atm_y_range[0] + delta_y * 0.66
+        sfc_src = self.sfc_ir.source
+        new_y_vals = {'y_start': [self.atm_y_range[0]],
+                      'y_end': [self.atm_y_range[0] + delta_y * 0.66]}
+        new_locs = self._new_arrow_dict(sfc_src.data,
+                                        new_y_vals)
+        sfc_src.data = new_locs
         linewidth = _normalized_line_width(1)
         self.sfc_ir.line_width = linewidth
         self.sfc_ir.end.size = linewidth * 1.5
@@ -500,6 +504,18 @@ class EarthEnergy(object):
         self.layer_coeffs = layer_coefs
 
         # self._update_ir_arrows()
+
+    @staticmethod
+    def _new_arrow_dict(old_dict, new_kv_pairs):
+
+        new_dict = {}
+        for k, v in old_dict.items():
+            if k in new_kv_pairs:
+                new_dict[k] = new_kv_pairs[k]
+            else:
+                new_dict[k] = v
+
+        return new_dict
 
     def _update_ir_arrow_locs(self, layer_idx, layer_arrows, y, delta_y):
 
@@ -648,15 +664,26 @@ class EarthEnergy(object):
                     head2 = OpenHead(line_color=IR_COLOR_HOT,
                                      line_alpha=l_alpha)
 
-                up_arrow = Arrow(end=head, x_start=x0,
-                                 x_end=x0, y_start=0, y_end=1,
-                                 line_color=IR_COLOR_HOT,
-                                 line_alpha=l_alpha)
+                data_src = ColumnDataSource(data=dict(x_start=[x0],
+                                                      x_end=[x0],
+                                                      y_start=[0],
+                                                      y_end=[1]))
+                data_src2 = ColumnDataSource(data=dict(x_start=[x0],
+                                                       x_end=[x0],
+                                                       y_start=[0],
+                                                       y_end=[1]))
 
-                down_arrow = Arrow(end=head2, x_start=x0, x_end=x0,
-                                   y_start=0, y_end=1,
+                up_arrow = Arrow(end=head, x_start='x_start', x_end='x_end',
+                                 y_start='y_start', y_end='y_end',
+                                 line_color=IR_COLOR_HOT,
+                                 line_alpha=l_alpha,
+                                 source=data_src)
+
+                down_arrow = Arrow(end=head2, x_start='x_start', x_end='x_end',
+                                   y_start='y_start', y_end='y_end',
                                    line_color=IR_COLOR_HOT,
-                                   line_alpha=l_alpha)
+                                   line_alpha=l_alpha,
+                                   source=data_src2)
 
                 up_arrow.visible = False
                 down_arrow.visible = False
