@@ -1,5 +1,5 @@
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, Arrow, OpenHead, NormalHead
 from bokeh.models.tools import HoverTool
 from bokeh.models.widgets import Div, Slider
 from bokeh.layouts import WidgetBox
@@ -22,7 +22,7 @@ ENERGY_STR = 'energy'
 ENERGY_PCT_STR = 'pct_energy'
 SFC_NAME = 'Earth_Surface'
 
-ATM_MAX_LAYERS = 10
+ATM_MAX_LAYERS = 1
 
 #Boltzman Constant
 SIGMA = 5.67e-8
@@ -78,6 +78,7 @@ class EarthEnergy(object):
         sun_earth_mid_y = plot_height + sun_earth_slope * sun_earth_mid_x
 
         self.atm_y_range = [earth_top, atm_height]
+        self.emiss_arrow_range = [plot_width * 0.55, plot_width * 0.95]
 
         earth = p.quad(left=0, right=plot_width,
                        bottom=0, top=earth_top,
@@ -97,7 +98,14 @@ class EarthEnergy(object):
 
         self.sfc_bnd = None
         self.atm_layer_bnds = None
+
         self.init_emiss_layers(p, plot_width, earth_top)
+        self.layer_arrows = self._create_arrows(p, plot_width)
+
+        # TODO: Temporary for 1-layer atms
+        self.sfc_ir = self.layer_arrows[0][0][0]
+        self.atm_ir_pass = self.layer_arrows[1][0][0]
+        self.atm_ir = self.layer_arrows[1][1]
 
         vis_space_to_earth = self._create_solar_ray([0, vis_to_earth_x], [plot_height, earth_top],
                                                     p, 1, 'space_to_earth')
@@ -170,6 +178,8 @@ class EarthEnergy(object):
                                               earth_top_y, '#000000',
                                               SFC_NAME)
 
+        # self.sfc_arrows = self._create_arrows(fig_handle, plot_width)
+
         self.atm_layer_bnds = []
         for i in range(ATM_MAX_LAYERS):
             atm_name = 'Atm_Layer_{:d}'.format(i+1)
@@ -182,10 +192,10 @@ class EarthEnergy(object):
 
     def init_climate_wx(self):
 
-        atm_layer_slider = Slider(start=0, end=10, step=1,
+        atm_layer_slider = Slider(start=0, end=1, step=1,
                                   value=self.nlayers_atm,
                                   title='Atmosphere: Number of Layers')
-        atm_emiss_slider = Slider(start=0, end=1, step=0.05,
+        atm_emiss_slider = Slider(start=0.05, end=1, step=0.05,
                                   value=self.atm_emissivity,
                                   title='Atmosphere Emissivity')
 
@@ -236,13 +246,15 @@ class EarthEnergy(object):
             self.a_cloud = new
             self.alpha = self.calc_albedo()
             self.atm_albedo = self.calc_atm_albedo()
-            self._update_atm_refl()
+            if self.nlayers_atm > 0:
+                self._update_atm_refl()
 
         def _cloud_frac_handler(attr, old, new):
             self.f_cloud = new
             self.alpha = self.calc_albedo()
             self.atm_albedo = self.calc_atm_albedo()
-            self._update_atm_refl()
+            if self.nlayers_atm > 0:
+                self._update_atm_refl()
 
         def _atm_layer_handler(attr, old, new):
             self.nlayers_atm = new
@@ -306,12 +318,12 @@ class EarthEnergy(object):
 
         self.sfc_absorbed_vis = land_absorb * in_energy
 
-        if in_energy_pct == 0:
+        if in_energy_pct == 0 or land_reflect == 0:
             sfc_up_data.visible = False
         else:
             sfc_up_data.visible = True
 
-            up_ray_width = _normalized_ray_width(land_reflect)
+            up_ray_width = _normalized_line_width(land_reflect)
             sfc_up_data.glyph.line_width = up_ray_width
 
         # Update energy absorbed at the surface
@@ -342,7 +354,7 @@ class EarthEnergy(object):
             atm_down_ray.visible = False
         else:
             atm_down_ray.visible = True
-            down_ray_width = _normalized_ray_width(atm_transmit)
+            down_ray_width = _normalized_line_width(atm_transmit)
             atm_down_ray.glyph.line_width = down_ray_width
 
         self._update_ray_energy(atm_down_ray, atm_transmit)
@@ -351,7 +363,7 @@ class EarthEnergy(object):
             atm_up_ray.visible = False
         else:
             atm_up_ray.visible = True
-            up_ray_width = _normalized_ray_width(atm_reflect)
+            up_ray_width = _normalized_line_width(atm_reflect)
             atm_up_ray.glyph.line_width = up_ray_width
 
         self._update_ray_energy(atm_up_ray, atm_reflect)
@@ -363,12 +375,14 @@ class EarthEnergy(object):
         self.clouds.visible = False
         self.atm_albedo = 0
         self._update_atm_refl()
+        self._turn_off_atm_arrows()
 
     def _turn_on_atm(self):
         self.atmos.visible = True
         self.clouds.visible = True
         self.atm_albedo = self.calc_atm_albedo()
         self._update_atm_refl()
+        self._turn_onn_atm_arrows()
 
     def _create_solar_ray(self, x_vals, y_vals, fig_handle, pct_original_in,
                           ray_name):
@@ -381,7 +395,7 @@ class EarthEnergy(object):
 
         data_src = ColumnDataSource(data=data_dict)
 
-        ray_width = _normalized_ray_width(pct_original_in)
+        ray_width = _normalized_line_width(pct_original_in)
 
         line = fig_handle.line(x='x_vals', y='y_vals', color=SUN_COLOR,
                                line_width=ray_width, line_cap='round',
@@ -404,7 +418,6 @@ class EarthEnergy(object):
                 absorp_e = atm_emiss
 
             for j in range(self.nlayers_atm + 1):
-                layer_loc = i
                 dist_from_loc = abs(j - i)
 
                 if j == 0:
@@ -430,29 +443,7 @@ class EarthEnergy(object):
 
         A = np.array(coef_matr)
 
-        # A = np.diag([2]*(self.nlayers_atm+1))
-        # A = A.astype(np.float)
-        #
-        # # Fix surface emissivity to one and single output direction
-        # A[0, 0] = 1
-        #
-        # # Direct emissions from other layers
-        # if self.nlayers_atm > 0:
-        #     A += np.diag([-1 * atm_emiss] * self.nlayers_atm, -1)
-        #     A += np.diag([-1 * atm_emiss] * self.nlayers_atm, 1)
-        #
-        # # Emissions through other layers
-        # if self.nlayers_atm >= 2:
-        #     for i in range(2, self.nlayers_atm+1):
-        #         list_len = self.nlayers_atm - (i - 1)
-        #         emiss_term = -(1 - atm_emiss)**(i - 1)
-        #         A += np.diag([emiss_term] * list_len, -i)
-        #         A += np.diag([emiss_term] * list_len, i)
-        #
-        # # Emission Adjustment term
-        # A[2:, 0] *= atm_emiss
-        # A[0, 2:] *= atm_emiss
-        # A[1:, 1:] *= atm_emiss
+        A[abs(A) < 1e-5] = 0
 
         b = np.array([in_energy] + [0.0] * self.nlayers_atm)
 
@@ -478,6 +469,19 @@ class EarthEnergy(object):
         self._update_emiss_bnd(self.sfc_bnd, sfc_energy)
 
         atm_y_locs = self._get_layer_y_loc()
+
+        if atm_y_locs:
+            delta_y = atm_y_locs[0] - self.atm_y_range[0]
+        else:
+            delta_y = np.diff(self.atm_y_range)[0]
+
+        self.sfc_ir.visible = True
+        self.sfc_ir.y_start = self.atm_y_range[0]
+        self.sfc_ir.y_end = self.atm_y_range[0] + delta_y * 0.66
+        linewidth = _normalized_line_width(1)
+        self.sfc_ir.line_width = linewidth
+        self.sfc_ir.end.size = linewidth * 1.5
+
         for i in range(self.nlayers_atm):
             emiss_bnd = self.atm_layer_bnds[i]
             emiss_bnd.visible = True
@@ -485,12 +489,197 @@ class EarthEnergy(object):
             bnd_energy = atm_energy[i]
 
             self._update_emiss_bnd(emiss_bnd, bnd_energy, y=y_loc)
+            self.handle_1_layer(bnd_energy, sfc_energy, y_loc,
+                                self.emiss_arrow_range[0],
+                                delta_y)
 
         for i in range(self.nlayers_atm, ATM_MAX_LAYERS):
             self.atm_layer_bnds[i].visible = False
 
         # Coefficients for calculating the layer energy
         self.layer_coeffs = layer_coefs
+
+        # self._update_ir_arrows()
+
+    def _update_ir_arrow_locs(self, layer_idx, layer_arrows, y, delta_y):
+
+        delta_x = np.diff(self.emiss_arrow_range)[0] / (self.nlayers_atm + 1)
+        x0 = self.emiss_arrow_range[0]
+        x_locs = [x0 + delta_x * i for i in range(self.nlayers_atm + 1)]
+
+        iter_dist = min(len(layer_arrows), self.nlayers_atm + 1)
+
+        for i in range(iter_dist):
+
+            arrow_grp = layer_arrows[i]
+
+            for j, arrow in enumerate(arrow_grp):
+                arrow.visible = True
+                arrow.x_start = x_locs[i]
+                arrow.x_end = x_locs[i]
+
+                if i == layer_idx:
+                    if j >= 1:
+                        y_end = y - delta_y*0.66
+                    else:
+                        y_end = y + delta_y*0.66
+                elif i < layer_idx:
+                    y_end = y + delta_y*0.66
+                else:
+                    y_end = y - delta_y*0.66
+
+                arrow.y_start = y
+                arrow.y_end = y_end
+
+        for i in range(iter_dist, self.nlayers_atm + 1):
+            try:
+                arrow_grp = layer_arrows[i]
+                for arrow in arrow_grp:
+                    arrow.visible = False
+            except IndexError:
+                break
+
+    def _update_ir_arrows(self):
+
+        emiss_coefs = self.layer_coeffs
+        sfc_energy = [self.sfc_bnd.data_source.data['layer_energy'][0]]
+        atm_energy = [bnd.data_source.data['layer_energy'][0]
+                      for bnd in self.atm_layer_bnds]
+        layer_energy = sfc_energy + atm_energy
+
+        for i in range(self.nlayers_atm + 1):
+
+            curr_coefs = emiss_coefs[i]
+            arrows = self.layer_arrows[i]
+
+            for j, arrow_grp in enumerate(arrows):
+                coef = curr_coefs[j]
+                curr_energy = layer_energy[j]
+
+                if j == i:
+                    energy_pct = (abs(coef) * curr_energy) / sfc_energy[0]
+                elif j < i:
+                    energy_pct = (sfc_energy[0] * (1-abs(coef))) / sfc_energy[0]
+                else:
+                    # TODO: Figure this out
+                    energy_pct = None
+
+                linewidth = _normalized_line_width(energy_pct)
+
+                for arrow in arrow_grp:
+                    if energy_pct == 0:
+                        arrow.visible = False
+                    else:
+                        arrow.visible = True
+                        arrow.line_width = linewidth
+                        arrow.end.size = linewidth*1.25
+
+    def handle_1_layer(self, bnd_energy, sfc_energy, y_loc, x_loc, delta_y):
+
+        coef = self.atm_emissivity
+        pass_coef = (1 - coef)
+
+        logger.debug(f'New pass: {pass_coef:1.2f}')
+
+        linewidth_pass = _normalized_line_width(pass_coef)
+        linewidth = _normalized_line_width(coef*bnd_energy / self.sfc_absorbed_vis)
+
+        if pass_coef == 0:
+            self.atm_ir_pass.visible = False
+        else:
+            logger.debug(f'pass is not zero: linewidth={linewidth_pass}')
+            self.atm_ir_pass.line_width = linewidth_pass
+            self.atm_ir_pass.end.size = linewidth_pass * 1.5
+            self.atm_ir_pass.x_start = x_loc
+            self.atm_ir_pass.x_end = x_loc
+            self.atm_ir_pass.y_start = y_loc
+            self.atm_ir_pass.y_end = y_loc + delta_y * 0.66
+            self.atm_ir_pass.visible = True
+
+        for i in range(len(self.atm_ir)):
+            emit = self.atm_ir[i]
+
+            if i != 0:
+                delta_y = -delta_y
+
+            emit.visible = True
+            emit.line_width = linewidth
+            emit.end.size = linewidth * 1.5
+            emit.x_start = x_loc + 100
+            emit.x_end = x_loc + 100
+            emit.y_start = y_loc
+            emit.y_end = y_loc + delta_y * 0.66
+
+    def _turn_off_atm_arrows(self):
+
+        self.atm_ir[0].visible = False
+        self.atm_ir[1].visible = False
+        self.atm_ir_pass.visible = False
+
+    def _turn_onn_atm_arrows(self):
+
+        self.atm_ir[0].visible = True
+        self.atm_ir[1].visible = True
+
+        if self.atm_emissivity == 1:
+            self.atm_ir_pass.visible = False
+        else:
+            self.atm_ir_pass.visible = True
+
+    @staticmethod
+    def _create_arrows(fig_handle, plot_width):
+
+        x0 = plot_width * 0.55
+
+        all_arrows = []
+        for i in range(ATM_MAX_LAYERS + 1):
+            layer_arrows = []
+
+            for j in range(ATM_MAX_LAYERS + 1):
+
+                if i == j:
+                    head = NormalHead(fill_color=IR_COLOR_HOT)
+                    head2 = NormalHead(fill_color=IR_COLOR_HOT)
+                    l_alpha = 1.0
+                else:
+                    l_alpha = 0.8
+                    head = OpenHead(line_color=IR_COLOR_HOT,
+                                    line_alpha=l_alpha)
+                    head2 = OpenHead(line_color=IR_COLOR_HOT,
+                                     line_alpha=l_alpha)
+
+                up_arrow = Arrow(end=head, x_start=x0,
+                                 x_end=x0, y_start=0, y_end=1,
+                                 line_color=IR_COLOR_HOT,
+                                 line_alpha=l_alpha)
+
+                down_arrow = Arrow(end=head2, x_start=x0, x_end=x0,
+                                   y_start=0, y_end=1,
+                                   line_color=IR_COLOR_HOT,
+                                   line_alpha=l_alpha)
+
+                up_arrow.visible = False
+                down_arrow.visible = False
+
+                if j < i:
+                    fig_handle.add_layout(up_arrow)
+                    layer_arrows.append((up_arrow,))
+                elif j == i:
+                    fig_handle.add_layout(up_arrow)
+
+                    if i == 0:
+                        layer_arrows.append((up_arrow,))
+                    else:
+                        fig_handle.add_layout(down_arrow)
+                        layer_arrows.append((up_arrow, down_arrow))
+                else:
+                    if i != 0:
+                        fig_handle.add_layout(down_arrow)
+                        layer_arrows.append((down_arrow,))
+
+            all_arrows.append(layer_arrows)
+
+        return all_arrows
 
     @staticmethod
     def _update_emiss_bnd(bnd, energy, y=None):
@@ -557,16 +746,14 @@ class EarthEnergy(object):
         return pct_transmitted, pct_reflected
 
 
-def _normalized_ray_width(pct_transmitted):
-
-    linewidth_max = 20
-    linewidth_min = 5
+def _normalized_line_width(pct_transmitted, linewidth_max=20, linewidth_min=5):
 
     width_range = linewidth_max - linewidth_min
 
     width = linewidth_min + width_range * pct_transmitted
 
     return width
+
 
 def _calc_temp(energy):
 
