@@ -1,5 +1,5 @@
 from bokeh.plotting import curdoc, show
-from bokeh.layouts import layout
+from bokeh.layouts import layout, column
 
 import terrasol
 import climate
@@ -29,7 +29,8 @@ earth = earth_energy.EarthEnergy()
 #                      sizing_mode='fixed')
 
 plot_layout = layout([[earth.plot],
-                      [earth.albedo_wx, earth.info_div]])
+                      [earth.solar_title_div, earth.planet_title_div],
+                      [earth.solar_wx, earth.albedo_wx, earth.info_div]])
 
 # show(plot_layout)
 curdoc().add_root(plot_layout)

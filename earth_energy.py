@@ -27,6 +27,8 @@ EARTH_TOP = 100
 
 #Boltzman Constant
 SIGMA = 5.67e-8
+AU_IN_M = 149597870700  # meters
+LUMINOSITY_OUR_SUN = 3.828e26  # watts
 
 #CSS Styles
 title_style = '"text-align:left; font-weight:bold; font-size:20px"'
@@ -38,13 +40,16 @@ class EarthEnergy(object):
     """Container for functions and pieces of the earth energy balance web
        application"""
 
-    def __init__(self, frac_cloud=0.7, albedo_cloud=0.4, s0=1.3612e3,
+    def __init__(self, frac_cloud=0.7, albedo_cloud=0.4,
                  frac_land=0.3, albedo_land=0.2, nlayers_atm=1,
                  plot_width=800, plot_height=600, simple_albedo=True,
-                 albedo=0.3):
+                 albedo=0.3, dist_from_sun_au=1, rel_solar_lum=1):
 
-        self.s0 = s0
-        self.vis_energy_in = s0 / 4
+        self.rel_solar_lum = rel_solar_lum
+        self.dist_from_sun_au = dist_from_sun_au
+        self.s0 = None
+        self.vis_energy_in = None
+        self.update_solar_in()
 
         if simple_albedo:
             self.simple_albedo = simple_albedo
@@ -65,7 +70,7 @@ class EarthEnergy(object):
         self.atm_emissivity = 1.0
 
         p = figure(x_range=[0, 800], y_range=[0, 600], plot_width=plot_width,
-                   plot_height=plot_height)
+                   plot_height=plot_height, tools='reset')
 
         # TODO: What's a good title
         p.title.text = "Simple Earth Energy Budget"
@@ -84,7 +89,7 @@ class EarthEnergy(object):
         p.xgrid.visible = False
         p.ygrid.visible = False
 
-        atm_height = plot_height - 150
+        atm_height = plot_height - plot_height * 0.3
 
         self.atm_y_range = [EARTH_TOP, atm_height]
         self.emiss_arrow_range = [plot_width * 0.55, plot_width * 0.95]
@@ -122,6 +127,8 @@ class EarthEnergy(object):
 
         self.layer_coeffs = None
         self.info_div = Div(text='', width=325, height=175)
+        self.planet_title_div = Div(text="""<h2>Planet Parameters</h2>""")
+        self.solar_title_div = Div(text="""<h2>Solar Parameters</h2>""")
 
         self._update_atm_refl()
 
@@ -134,6 +141,7 @@ class EarthEnergy(object):
 
         self.plot = p
         self.albedo_wx = self.init_climate_wx()
+        self.solar_wx = self.init_solar_wx()
 
     def calc_albedo(self):
         cloud = self.f_cloud * self.a_cloud
@@ -152,6 +160,15 @@ class EarthEnergy(object):
         atm_albedo = self.f_cloud * self.a_cloud
         logger.debug(f'Total atm albedo update: {atm_albedo:1.2f}')
         return atm_albedo
+
+    def calc_s0(self):
+
+        lum = LUMINOSITY_OUR_SUN * self.rel_solar_lum
+        radius = AU_IN_M * self.dist_from_sun_au
+
+        s0 = lum / (4*np.pi*radius**2)
+
+        return s0
 
     def init_solar_rays(self, plot_height, plot_width, atm_height, fig_handle):
 
@@ -212,6 +229,39 @@ class EarthEnergy(object):
                                            atm_name)
             layer.visible = False
             self.atm_layer_bnds.append(layer)
+
+    def init_solar_wx(self):
+
+        sun_luminos_slider = Slider(start=0.1, end=10, step=0.1,
+                                    value=self.rel_solar_lum,
+                                    title='Relative Solar Luminosity (Solar Units)')
+
+        earth_radius_slider = Slider(start=0.1, end=10, step=0.1,
+                                     value=self.dist_from_sun_au,
+                                     title='Distance from Sun (AU)')
+
+        def _lum_handler(attr, old, new):
+            self.rel_solar_lum = new
+            self.update_solar_in()
+            self.update_input_rays()
+            self._update_atm_refl()
+
+        def _radius_handler(attr, old, new):
+            self.dist_from_sun_au = new
+            self.update_solar_in()
+            self.update_input_rays()
+            self._update_atm_refl()
+
+        sun_luminos_slider.on_change('value', _lum_handler)
+        earth_radius_slider.on_change('value', _radius_handler)
+
+        solar_sliders = WidgetBox(sun_luminos_slider, earth_radius_slider)
+
+        return [solar_sliders]
+
+
+
+
 
     def init_climate_wx(self):
 
@@ -335,6 +385,18 @@ class EarthEnergy(object):
 
         # return [albedo_wx, tau_wx]
         return [albedo_wx, layer_wx]
+
+    def update_solar_in(self):
+
+        self.s0 = self.calc_s0()
+        self.vis_energy_in = self.s0 / 4
+
+    def update_input_rays(self):
+        down_to_earth = self.direct_rays['down']
+        down_to_atm = self.direct_rays['down_atm']
+
+        self._update_ray_energy(down_to_earth, 1)
+        self._update_ray_energy(down_to_atm, 1)
 
     def _update_land_refl(self):
         if self.nlayers_atm >= 1 and not self.simple_albedo:
