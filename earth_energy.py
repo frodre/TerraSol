@@ -152,12 +152,14 @@ class EarthEnergy(object):
 
     def calc_land_albedo(self):
         sfc_albedo = self.f_land * self.a_land
-        logger.debug('Total land albedo update: {sfc_albedo:1.2f}')
+        logger.debug('Total land albedo update: {sfc_albedo:1.2f}'
+                     ''.format(sfc_albedo=sfc_albedo))
         return sfc_albedo
 
     def calc_atm_albedo(self):
         atm_albedo = self.f_cloud * self.a_cloud
-        logger.debug(f'Total atm albedo update: {atm_albedo:1.2f}')
+        logger.debug('Total atm albedo update: {atm_albedo:1.2f}'
+                     ''.format(atm_albedo=atm_albedo))
         return atm_albedo
 
     def calc_s0(self):
@@ -412,11 +414,15 @@ class EarthEnergy(object):
 
         self.sfc_absorbed_vis = land_absorb * in_energy
 
-        logger.debug((f'Updating land reflectivity:\n'
-                      f'\tIncoming energy = {in_energy:4.1f}\n'
-                      f'\tReflected energy pct = {land_reflect:3.1f}\n'
-                      f'\tAbsorbed energy pct = {land_absorb:3.1f}\n'
-                      f'\tTot Absorb energy = {self.sfc_absorbed_vis:3.1f}'))
+        logger.debug(('Updating land reflectivity:\n'
+                      '\tIncoming energy = {in_energy:4.1f}\n'
+                      '\tReflected energy pct = {land_reflect:3.1f}\n'
+                      '\tAbsorbed energy pct = {land_absorb:3.1f}\n'
+                      '\tTot Absorb energy = {sfc_absorbed_vis:3.1f}'
+                      ''.format(in_energy=in_energy,
+                                land_reflect=land_reflect,
+                                land_absorb=land_absorb,
+                                sfc_absorbed_vis=self.sfc_absorbed_vis)))
 
         if in_energy_pct == 0 or land_reflect == 0:
             sfc_up_data.visible = False
@@ -443,10 +449,13 @@ class EarthEnergy(object):
          atm_reflect] = self._solar_ray_transmit_reflect(in_pct_energy,
                                                          self.atm_albedo)
 
-        logger.debug((f'Updating atmosphere reflectivity:\n'
-                      f'\tIncoming energy = {in_energy:4.1f}\n'
-                      f'\tReflected energy = {atm_reflect:3.1f}\n'
-                      f'\tTransmitted energy = {atm_transmit:3.1f}'))
+        logger.debug(('Updating atmosphere reflectivity:\n'
+                      '\tIncoming energy = {in_energy:4.1f}\n'
+                      '\tReflected energy = {atm_reflect:3.1f}\n'
+                      '\tTransmitted energy = {atm_transmit:3.1f}'
+                      ''.format(in_energy=in_energy,
+                                atm_reflect=atm_reflect,
+                                atm_transmit=atm_transmit)))
 
         atm_down_ray = self.atm_rays['down']
         atm_up_ray = self.atm_rays['up']
@@ -541,7 +550,8 @@ class EarthEnergy(object):
                     coef_row.append(coef)
 
             coef_matr.append(coef_row)
-            logger.debug(f'Row {i} coeffs: {coef_row}')
+            logger.debug('Row {i} coeffs: {coef_row}'.format(i=i,
+                                                             coef_row=coef_row))
 
         A = np.array(coef_matr)
 
@@ -701,7 +711,7 @@ class EarthEnergy(object):
         coef = self.atm_emissivity
         pass_coef = (1 - coef)
 
-        logger.debug(f'New pass: {pass_coef:1.2f}')
+        logger.debug('New pass: {pass_coef:1.2f}'.format(pass_coef=pass_coef))
 
         linewidth_pass = _normalized_line_width(pass_coef)
         linewidth = _normalized_line_width(coef*bnd_energy / self.sfc_absorbed_vis)
@@ -709,7 +719,8 @@ class EarthEnergy(object):
         if pass_coef == 0:
             self.atm_ir_pass.visible = False
         else:
-            logger.debug(f'pass is not zero: linewidth={linewidth_pass}')
+            logger.debug('pass is not zero: linewidth={linewidth_pass}'
+                         ''.format(linewidth_pass=linewidth_pass))
             self.atm_ir_pass.line_width = linewidth_pass
             self.atm_ir_pass.end.size = linewidth_pass * 1.5
             self.atm_ir_pass.end.line_width = linewidth * 0.2
@@ -902,9 +913,12 @@ class EarthEnergy(object):
         else:
             print_energy = energy
 
-        logger.debug(f'Update layer emissions, {name}:\n'
-                     f'\tTotal Energy Output: {print_energy:4.1f} W/m2'
-                     f'\tTemperature: {temperature:3.1f} K')
+        logger.debug('Update layer emissions, {name}:\n'
+                     '\tTotal Energy Output: {print_energy:4.1f} W/m2'
+                     '\tTemperature: {temperature:3.1f} K'
+                     ''.format(name=name,
+                               print_energy=print_energy,
+                               temperature=temperature))
 
     @staticmethod
     def _create_emiss_bnd(fig_handle, x_vals, y_val, line_color, layer_name):
@@ -929,8 +943,11 @@ class EarthEnergy(object):
         ray.data_source.data[ENERGY_PCT_STR][0] = pct_initial_energy
         ray.data_source.data[ENERGY_STR][0] = new_energy
 
-        logger.debug(f'Updating Ray Energy: {ray.name} -- pct_init: '
-                     f'{pct_initial_energy:1.2f} -- energy: {new_energy:3.1f}')
+        logger.debug('Updating Ray Energy: {ray_name} -- pct_init: '
+                     '{pct_initial_energy:1.2f} -- energy: {new_energy:3.1f}'
+                     ''.format(ray_name=ray.name,
+                               pct_initial_energy=pct_initial_energy,
+                               new_energy=new_energy))
 
     @staticmethod
     def _get_ray_energy_and_pct(ray):
