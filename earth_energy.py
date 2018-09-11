@@ -310,33 +310,33 @@ class EarthEnergy(object):
 
         def _land_alb_handler(attr, old, new):
             self.a_land = new
-            self.alpha = self.calc_albedo()
+            self.total_albedo = self.calc_albedo()
             self.sfc_albedo = self.calc_land_albedo()
             self._update_land_refl()
 
         def _land_frac_handler(attr, old, new):
             self.f_land = new
             self.sfc_albedo = self.calc_land_albedo()
-            self.alpha = self.calc_albedo()
+            self.total_albedo = self.calc_albedo()
             self._update_land_refl()
 
         def _cloud_alb_handler(attr, old, new):
             self.a_cloud = new
-            self.alpha = self.calc_albedo()
+            self.total_albedo = self.calc_albedo()
             self.atm_albedo = self.calc_atm_albedo()
             if self.nlayers_atm > 0:
                 self._update_atm_refl()
 
         def _cloud_frac_handler(attr, old, new):
             self.f_cloud = new
-            self.alpha = self.calc_albedo()
+            self.total_albedo = self.calc_albedo()
             self.atm_albedo = self.calc_atm_albedo()
             if self.nlayers_atm > 0:
                 self._update_atm_refl()
 
         def _simple_alb_handler(attr, old, new):
             self.a_land = new
-            self.alpha = self.calc_albedo()
+            self.total_albedo = self.calc_albedo()
             self.sfc_albedo = self.calc_land_albedo()
             self._update_land_refl()
 
