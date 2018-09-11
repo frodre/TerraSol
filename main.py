@@ -29,7 +29,7 @@ earth = earth_energy.EarthEnergy()
 #                      sizing_mode='fixed')
 
 plot_layout = layout([[earth.plot],
-                      [earth.albedo_wx]])
+                      [earth.albedo_wx, earth.info_div]])
 
 # show(plot_layout)
 curdoc().add_root(plot_layout)
