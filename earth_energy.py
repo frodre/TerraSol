@@ -269,7 +269,7 @@ class EarthEnergy(object):
         atm_layer_slider = Slider(start=0, end=1, step=1,
                                   value=self.nlayers_atm,
                                   title='Atmosphere: Number of Layers')
-        atm_emiss_slider = Slider(start=0.05, end=1, step=0.05,
+        atm_emiss_slider = Slider(start=0.05, end=1, step=0.01,
                                   value=self.atm_emissivity,
                                   title='Atmosphere Emissivity')
 
@@ -770,17 +770,18 @@ class EarthEnergy(object):
     def create_model_summary_text(self):
 
         sfc_temp = self.sfc_bnd.data_source.data['layer_temp'][0]
-        sfc_temp -= 273
-        sfc_temp_f = sfc_temp * 9/5 + 32
+        sfc_temp_c = sfc_temp - 273
+        sfc_temp_f = sfc_temp_c * 9/5 + 32
 
         if self.nlayers_atm == 1:
             atm_temp = self.atm_layer_bnds[0].data_source.data['layer_temp'][0]
-            atm_temp -= 273
-            atm_temp_f = atm_temp * 9 / 5 + 32
+            atm_temp_c = atm_temp - 273
+            atm_temp_f = atm_temp_c * 9 / 5 + 32
             logger.debug(('Atm temp C: {:2.1f} Atm temp F: {:3.1f}'
                           ''.format(atm_temp, atm_temp_f)))
         else:
             atm_temp_f = None
+            atm_temp = None
 
         tot_albedo = self.total_albedo
         if atm_temp_f is not None:
@@ -788,10 +789,10 @@ class EarthEnergy(object):
             atm_temp_text = """
             <tr>
                 <td style={left_style}>Atmos. Layer Temperature</td>
-                <td style={right_style}> {atm_temp_f:3.1f} F</td>
+                <td style={right_style}> {atm_temp_f:3.1f} F ({atm_temp:3.1f} K)</td>
             </tr>
             """.format(left_style=left_style, right_style=right_style,
-                       atm_temp_f=atm_temp_f)
+                       atm_temp_f=atm_temp_f, atm_temp=atm_temp)
         else:
             atm_temp_text = ''
 
@@ -815,7 +816,7 @@ class EarthEnergy(object):
             </tr>
             <tr>
                 <td style={left_style}>Surface Temperature:</td>
-                <td style={right_style}>{sfc_temp:3.1f} F</td>
+                <td style={right_style}>{sfc_temp_f:3.1f} F ({sfc_temp:3.1f} K)</td>
             </tr>
             {atm_temp_text}
         </table>""".format(title_style=title_style,
@@ -824,7 +825,8 @@ class EarthEnergy(object):
                            solar_constant=solar_constant,
                            incident_energy=incident_energy,
                            albedo=tot_albedo,
-                           sfc_temp=sfc_temp_f,
+                           sfc_temp_f=sfc_temp_f,
+                           sfc_temp=sfc_temp,
                            atm_temp_text=atm_temp_text)
 
         return text
