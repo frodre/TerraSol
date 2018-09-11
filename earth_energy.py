@@ -1,6 +1,5 @@
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Arrow, OpenHead, NormalHead
-from bokeh.models.tools import HoverTool
 from bokeh.models.widgets import Div, Slider
 from bokeh.layouts import WidgetBox
 
@@ -147,13 +146,13 @@ class EarthEnergy(object):
         cloud = self.f_cloud * self.a_cloud
         land = (1 - self.f_cloud) * self.f_land * self.a_land
         alpha = cloud + land
-        logger.debug(f'Total Albedo Update: {alpha:1.2f}')
+        logger.debug('Total Albedo Update: {alpha:1.2f}'.format(alpha=alpha))
 
         return alpha
 
     def calc_land_albedo(self):
         sfc_albedo = self.f_land * self.a_land
-        logger.debug(f'Total land albedo update: {sfc_albedo:1.2f}')
+        logger.debug('Total land albedo update: {sfc_albedo:1.2f}')
         return sfc_albedo
 
     def calc_atm_albedo(self):

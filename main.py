@@ -1,8 +1,6 @@
-from bokeh.plotting import curdoc, show
-from bokeh.layouts import layout, column
+from bokeh.plotting import curdoc
+from bokeh.layouts import layout
 
-import terrasol
-import climate
 import earth_energy
 
 
