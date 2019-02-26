@@ -1,0 +1,5 @@
+bokeh
+numpy
+scipy
+xarray
+pandas
