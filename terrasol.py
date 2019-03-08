@@ -26,6 +26,7 @@ left_style = '"text-align:left; font-weight:bold"'
 right_style = '"text-align:right; font-weight:normal;"'
 title_style = '"text-align:left; font-weight:bold; font-size:18px"'
 
+
 class TerraSol(object):
     """Container for important functions and pieces of the stellar and planetary
     body web application."""
@@ -33,6 +34,8 @@ class TerraSol(object):
     def __init__(self, t_eff=6000, rel_luminosity=1, rel_planet_dist=1,
                  rel_planet_radius=1, plot_width=800, plot_height=400):
 
+        self.title_div = Div(
+            text="<h1>Star and Planet Simulator</h1>", width=plot_width)
         # Calculate Star and planet characteristics
         stellar_radius = calc_star_radius(rel_luminosity, t_eff)
         planet_radius = calc_planet_radius_in_au(rel_planet_radius)
@@ -48,26 +51,27 @@ class TerraSol(object):
 
         p.xaxis.axis_label = 'Distance (AU)'
         p.yaxis.axis_label = 'Distance (AU)'
-        p.title.text = 'TerraSol Simulator'
+        p.title.text = 'TerraSol'
 
         # Star Data Source
         star_data = ColumnDataSource(data=dict(name=['Sol'],
-                                              radius=[stellar_radius],
-                                              color=[star_color],
-                                              xvalues=[0],
-                                              yvalues=[0],
-                                              line_color=[None],
-                                              energy_out=[star_E_out],
-                                              T_eff=[t_eff],
-                                              luminosity=[rel_luminosity]))
+                                               radius=[stellar_radius],
+                                               color=[star_color],
+                                               xvalues=[0],
+                                               yvalues=[0],
+                                               line_color=[None],
+                                               energy_out=[star_E_out],
+                                               T_eff=[t_eff],
+                                               luminosity=[rel_luminosity]))
         # planet data source
         planet_data = ColumnDataSource(data=dict(name=['Terra'],
-                                                radius=[planet_radius],
-                                                color=['Tan'],
-                                                xvalues=[rel_planet_dist],
-                                                yvalues=[0],
-                                                line_color=['#ADD8E6'],  # light blue
-                                                energy_in=[planet_E_in]))
+                                                 radius=[planet_radius],
+                                                 color=['Tan'],
+                                                 xvalues=[rel_planet_dist],
+                                                 yvalues=[0],
+                                                 # light blue
+                                                 line_color=['#ADD8E6'],
+                                                 energy_in=[planet_E_in]))
 
         # Calculate invisible radius factor for hover tooltips
         invis_radius = radius_fix_factor(plot_width, plot_height,
@@ -150,7 +154,8 @@ class TerraSol(object):
 
         energy_in = calc_planet_energy_in(star_luminosity, dist)
 
-        planet_update = dict(radius=[radius], xvalues=[dist], energy_in=[energy_in])
+        planet_update = dict(radius=[radius], xvalues=[
+                             dist], energy_in=[energy_in])
         self.planet_data.data.update(planet_update)
 
         new_planet_text = self.create_planet_text_html()
@@ -203,8 +208,9 @@ class TerraSol(object):
         luminosity *= LUMINOSITY_OUR_SUN
         radius *= AU_IN_M
 
-        harvard_class, msf, lifetime = self._determine_star_type(t_eff, luminosity)
-            
+        harvard_class, msf, lifetime = self._determine_star_type(
+            t_eff, luminosity)
+
         text = """
                 <table style="width:100%">
                     <tr><th colspan="2" style={title_style}>{name} Characteristics</th></tr>
